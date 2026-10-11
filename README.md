@@ -91,7 +91,8 @@ Step-by-step instructions are in the [user guide](docs/USAGE.md#ark-internet-cal
 ## Install
 
 1. Download `ARK-phone-<version>-release.apk` from the
-   [latest release](https://github.com/jrs8205/ARK-phone/releases/latest).
+   [latest release](https://github.com/jrs8205/ARK-phone/releases/latest)
+   or from its mirror on [SourceForge](https://sourceforge.net/projects/ark-phone/).
 2. Open the file on your phone and allow installing from unknown sources
    when asked.
 3. Set ARK-phone as the default phone app, and optionally as the default SMS
