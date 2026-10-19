@@ -79,6 +79,25 @@ Build artefacts (versionCode 16, same signing key as v1.28):
 4. The deferred missed-call notification: `missedCalls(record)` now fires up to 20 s after the
    ring ends. Any surface that assumed it fired synchronously?
 
+## Round 1 findings (2026-10-19) and fixes
+
+| # | Finding | Fix |
+| --- | --- | --- |
+| P2 | A row held for the grace window landed unread after the user had opened the call log, with a notification over the list in view. | `MissedCallNotifier` tracks when the main screen is in front (`onCallLogShown()` from `MainActivity.onResume`, `onCallLogHidden()` from a new `onPause`); a missed call that lands meanwhile is acknowledged through `onCallLogSeen()` instead of notified. Two tests in `MissedCallNotifierTest`. |
+| P3 | `first()` on the constructor's default `emptyFlow()` threw past `withTimeoutOrNull`, losing the row and the notification. | `firstOrNull()`: a completed feed counts as no carrier call. Test `aCompletingCarrierFeedStillLogsTheMissedCall`. |
+
+The in-front rule applies to every missed call, carrier calls included: a call that is missed while the
+app's own screen is resumed is acknowledged as it lands, where before a notification was posted and
+then cancelled by the next resume. Please say if that widening is unwanted.
+
+After the fixes: 1 039 tests, 0 failures; lint 0 errors, 0 warnings, 1 pre-existing hint; release,
+beta and debug APKs rebuilt. Release SHA-256 `a2fa13bbe10315faa713b7d2187ec9b6ead989464e65572011ea999ef0f4c251`, beta `5cccf3e233d07da1e15f53cccdf6466993889dfcf29b337b388e5c0d4a51b0a3`.
+
+## Round 2 request
+
+Review the two fix commits after `e835c6a` for the questions above, the widened in-front rule, and
+anything the first round did not cover.
+
 ## Device test plan (after the review)
 
 - Pixel 9a: call it from the Fairphone 6 with the `#31#` prefix; the announcement must say
