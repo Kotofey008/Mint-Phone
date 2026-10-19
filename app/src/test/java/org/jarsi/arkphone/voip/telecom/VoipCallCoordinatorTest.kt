@@ -5,9 +5,11 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -178,6 +180,7 @@ class VoipCallCoordinatorTest {
         hasMic: () -> Boolean = { true },
         arkEnabled: suspend () -> Boolean = { true },
         refreshLinks: suspend () -> Unit = {},
+        carrierFeed: Flow<String?> = carrierRinging,
     ) = VoipCallCoordinator(
         reachCheck = { code, timeout -> reach.reach(code, timeout) },
         sessionFactory = { _, _, _, _, callId, _ ->
@@ -197,7 +200,7 @@ class VoipCallCoordinatorTest {
         arkCallsEnabled = arkEnabled,
         ringback = ringback,
         refreshLinkCache = refreshLinks,
-        carrierCallRinging = carrierRinging,
+        carrierCallRinging = carrierFeed,
     )
 
     @Test
@@ -925,6 +928,23 @@ class VoipCallCoordinatorTest {
         session.moveTo(VoipCallState.Ended("peer-hangup"))
         runCurrent()
         assertEquals(ArkCallType.INCOMING, callLog.records.single().type)
+    }
+
+    @Test
+    fun aCompletingCarrierFeedStillLogsTheMissedCall() = runTest {
+        // The constructor's default feed is emptyFlow(): a feed that completes
+        // without a match must count as "no carrier call", not lose the row
+        // (external review 2026-10-19, P3).
+        val coordinator =
+            coordinator(backgroundScope, FakeReach(reachable = true), carrierFeed = emptyFlow())
+        coordinator.onIncoming(IncomingArkCall("ARK-BBBB-BBBB", "v=0"))
+        runCurrent()
+        session.moveTo(VoipCallState.Ended("peer-hangup"))
+        runCurrent()
+        advanceTimeBy(CARRIER_FALLBACK_GRACE_MS + 1)
+        runCurrent()
+        assertEquals(ArkCallType.MISSED, callLog.records.single().type)
+        assertEquals(1, missed.size)
     }
 
     @Test

@@ -7,7 +7,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import org.jarsi.arkphone.telecom.DisconnectError
@@ -536,8 +536,10 @@ class VoipCallCoordinator(
      */
     private fun holdForCarrierFallback(record: ArkCallRecord) {
         scope.launch {
+            // A feed that completes (the default is empty) is no carrier call
+            // either: first() would throw past the timeout and lose the row.
             val carrierCaller = withTimeoutOrNull(CARRIER_FALLBACK_GRACE_MS) {
-                carrierCallRinging.first { number -> isSameCaller(record.number, number) }
+                carrierCallRinging.firstOrNull { number -> isSameCaller(record.number, number) }
             }
             if (carrierCaller != null) {
                 Log.i(TAG, "ARK row dropped: carrier call from the same caller")

@@ -121,6 +121,32 @@ class MissedCallNotifierTest {
     }
 
     @Test
+    fun aMissedCallLandingWhileTheCallLogIsInFrontIsMarkedSeenNotNotified() = runTest {
+        // An ARK row held for the carrier-fallback window can land after the
+        // user already opened the call log: it must arrive as seen, and no
+        // notification may sit over the list the user is looking at
+        // (external review 2026-10-19, P2).
+        val notifier = notifier()
+        notifier.onCallLogShown()
+        notifier.onMissedCallsChanged(1, "0401234567")
+        assertNull(postedNotification())
+        val updates = shadowOf(context.contentResolver).updateStatements
+            .filter { it.uri == CallLog.Calls.CONTENT_URI }
+        assertEquals(2, updates.size)
+        assertEquals(0, updates.last().contentValues.getAsInteger(CallLog.Calls.NEW))
+        assertEquals(1, updates.last().contentValues.getAsInteger(CallLog.Calls.IS_READ))
+    }
+
+    @Test
+    fun onceTheCallLogIsHiddenAMissedCallNotifiesAgain() = runTest {
+        val notifier = notifier()
+        notifier.onCallLogShown()
+        notifier.onCallLogHidden()
+        notifier.onMissedCallsChanged(1, "0401234567")
+        assertNotNull(postedNotification())
+    }
+
+    @Test
     fun dismissingTheNotificationMarksTheCallLogSeen() = runTest {
         // Without this the swiped-away calls stay unread in the system log
         // and the platform re-broadcasts them as a fresh notification on the

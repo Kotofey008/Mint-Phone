@@ -134,8 +134,13 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         refreshSetupState()
-        missedCallNotifier.onCallLogSeen()
+        missedCallNotifier.onCallLogShown()
         blockedCallNotifier.onSeen()
+    }
+
+    override fun onPause() {
+        missedCallNotifier.onCallLogHidden()
+        super.onPause()
     }
 
     override fun onNewIntent(intent: Intent) {

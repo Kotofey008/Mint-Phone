@@ -50,10 +50,32 @@ class MissedCallNotifier @Inject constructor(
         const val EXTRA_NUMBER = "org.jarsi.arkphone.extra.NUMBER"
     }
 
+    /** True while the app's own screens are in front: a missed call that
+     *  lands then is already in view and is acknowledged as it lands. */
+    @Volatile
+    private var callLogInFront = false
+
+    /** The main screen resumed: everything missed so far is seen, and so is
+     *  whatever lands while it stays in front. An ARK row held for the
+     *  carrier-fallback window used to land unread here, with a notification
+     *  over the very list the user was looking at. */
+    fun onCallLogShown(onDone: () -> Unit = {}) {
+        callLogInFront = true
+        onCallLogSeen(onDone)
+    }
+
+    fun onCallLogHidden() {
+        callLogInFront = false
+    }
+
     fun onMissedCallsChanged(count: Int, number: String?, onDone: () -> Unit = {}) {
         if (count <= 0) {
             cancelNotification()
             onDone()
+            return
+        }
+        if (callLogInFront) {
+            onCallLogSeen(onDone)
             return
         }
         // A voicemail-mode block rings out as a platform "missed call". The
