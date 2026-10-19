@@ -5,10 +5,15 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import org.jarsi.arkphone.telecom.DisconnectError
 import org.jarsi.arkphone.telecom.InCallAudioController
 import org.jarsi.arkphone.util.Clock
+import org.jarsi.arkphone.util.sameCaller
 import org.jarsi.arkphone.voip.ArkCallAdmission
 import org.jarsi.arkphone.voip.ArkLink
 import org.jarsi.arkphone.voip.IncomingArkCall
@@ -38,9 +43,23 @@ const val VOIP_RING_TIMEOUT_MS: Long = 30_000L
  *  caller's ring window, so the caller decides carrier fallback first. */
 const val VOIP_INCOMING_RING_TIMEOUT_MS: Long = 35_000L
 
+/**
+ * How long the callee holds the row of an unanswered incoming ARK call
+ * before writing it. The caller's carrier fallback dials the moment Telecom
+ * releases the ARK call, and that carrier call rings here 3–8 s later: a row
+ * written at once sat next to the carrier row of the very same call, with a
+ * missed-call notification for a call still ringing over the carrier (field
+ * data 2026-08-09, 2026-08-20). A caller who simply gave up is logged after
+ * the window.
+ */
+const val CARRIER_FALLBACK_GRACE_MS: Long = 20_000L
+
 /** End reasons that are a deliberate outcome, not a failure to route around. */
 private val DELIBERATE_END_REASONS =
     setOf("local-hangup", "local-reject", "rejected", "peer-hangup")
+
+/** The callee declined on purpose: no carrier call can follow that. */
+private const val LOCAL_REJECT_REASON = "local-reject"
 
 /**
  * Owns the one VoIP call this phone can have at a time and drives every
@@ -68,6 +87,8 @@ class VoipCallCoordinator(
     private val arkCallsEnabled: suspend () -> Boolean = { true },
     private val ringback: RingbackController = RingbackController.None,
     private val refreshLinkCache: suspend () -> Unit = {},
+    /** The number (null when hidden) of each carrier call as it rings here. */
+    private val carrierCallRinging: Flow<String?> = emptyFlow(),
 ) : VoipCallGateway, ArkCallAdmission {
 
     private var active: ActiveCall? = null
@@ -489,9 +510,45 @@ class VoipCallCoordinator(
             endedAtMillis = clock.nowMillis(),
             answeredByUser = call.answeredByUser,
         )
+        val neverConnected = call.handle.connectTimeMillis == 0L
+        if (call.direction == VoipCallDirection.INCOMING && neverConnected &&
+            ended.reason != LOCAL_REJECT_REASON
+        ) {
+            holdForCarrierFallback(record)
+        } else {
+            write(record)
+        }
+    }
+
+    private fun write(record: ArkCallRecord) {
         callLog.record(record)
         if (record.type == ArkCallType.MISSED) missedCalls(record)
     }
+
+    /**
+     * The callee's side of the caller's carrier fallback: the attempt rang
+     * here (or was answered and lost its media) and the same call is now on
+     * its way over the carrier, which writes its own row. Runs in the
+     * coordinator's scope — the call's session scope is already cancelled,
+     * and the next call must not wait on this. Process death inside the
+     * window loses the row; accepted, since the dialer process stays up for
+     * the carrier call that is coming.
+     */
+    private fun holdForCarrierFallback(record: ArkCallRecord) {
+        scope.launch {
+            val carrierCaller = withTimeoutOrNull(CARRIER_FALLBACK_GRACE_MS) {
+                carrierCallRinging.first { number -> isSameCaller(record.number, number) }
+            }
+            if (carrierCaller != null) {
+                Log.i(TAG, "ARK row dropped: carrier call from the same caller")
+            } else {
+                write(record)
+            }
+        }
+    }
+
+    private fun isSameCaller(arkNumber: String?, carrierNumber: String?): Boolean =
+        arkNumber != null && carrierNumber != null && sameCaller(arkNumber, carrierNumber)
 
     private companion object {
         const val TAG = "ArkPhone"

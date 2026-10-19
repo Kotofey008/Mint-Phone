@@ -5,6 +5,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -156,6 +157,9 @@ class VoipCallCoordinatorTest {
     private val missed = mutableListOf<ArkCallRecord>()
     private val createdCallIds = mutableListOf<String?>()
 
+    /** Numbers of carrier calls as they start ringing on this phone. */
+    private val carrierRinging = MutableSharedFlow<String?>(extraBufferCapacity = 8)
+
     private val link = ArkLink(
         numberKey = "445552841",
         number = "+358 44 5552841",
@@ -193,6 +197,7 @@ class VoipCallCoordinatorTest {
         arkCallsEnabled = arkEnabled,
         ringback = ringback,
         refreshLinkCache = refreshLinks,
+        carrierCallRinging = carrierRinging,
     )
 
     @Test
@@ -558,6 +563,8 @@ class VoipCallCoordinatorTest {
         runCurrent()
         session.moveTo(VoipCallState.Ended("no-answer"))
         runCurrent()
+        advanceTimeBy(CARRIER_FALLBACK_GRACE_MS + 1)
+        runCurrent()
         assertEquals(ArkCallType.MISSED, callLog.records.single().type)
         assertEquals(1, missed.size)
     }
@@ -716,9 +723,13 @@ class VoipCallCoordinatorTest {
         advanceTimeBy(VOIP_INCOMING_RING_TIMEOUT_MS + 1)
         runCurrent()
         assertTrue(session.calls.contains("hangUp"))
+        assertTrue(ui.events.contains("removed"))
+        // The row waits out the carrier-fallback window like any other
+        // unanswered ring; the guard itself does not know why nobody ended it.
+        advanceTimeBy(CARRIER_FALLBACK_GRACE_MS + 1)
+        runCurrent()
         assertEquals(ArkCallType.MISSED, callLog.records.single().type)
         assertEquals(1, missed.size)
-        assertTrue(ui.events.contains("removed"))
     }
 
     @Test
@@ -798,7 +809,134 @@ class VoipCallCoordinatorTest {
         telecom.lastAnswer!!()
         session.moveTo(VoipCallState.Ended("connection-failed"))
         runCurrent()
+        advanceTimeBy(CARRIER_FALLBACK_GRACE_MS + 1)
+        runCurrent()
         assertEquals(ArkCallType.INCOMING, callLog.records.single().type)
         assertTrue(missed.isEmpty())
+    }
+
+    // The callee's side of a carrier fallback: the caller's attempt rang (or
+    // was even answered) here, died, and the caller dialed the carrier — one
+    // call from the user's point of view, so the ARK row must not be written
+    // next to the carrier row of the same call (field data 2026-08-09,
+    // 2026-08-20: ARK missed row + carrier row seconds apart).
+
+    @Test
+    fun anIncomingRingTheCallerAbandonsIsNotLoggedWhenTheCarrierCallFollows() = runTest {
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        coordinator.onIncoming(IncomingArkCall("ARK-BBBB-BBBB", "v=0"))
+        runCurrent()
+        session.moveTo(VoipCallState.Ended("peer-hangup"))
+        runCurrent()
+        assertTrue(callLog.records.isEmpty())
+        assertTrue(missed.isEmpty())
+        assertTrue(ui.events.contains("removed"))
+        carrierRinging.tryEmit("0445552841")
+        runCurrent()
+        advanceTimeBy(CARRIER_FALLBACK_GRACE_MS + 1)
+        runCurrent()
+        assertTrue(callLog.records.isEmpty())
+        assertTrue(missed.isEmpty())
+    }
+
+    @Test
+    fun anIncomingRingTheCallerAbandonsIsLoggedMissedWhenNoCarrierCallFollows() = runTest {
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        coordinator.onIncoming(IncomingArkCall("ARK-BBBB-BBBB", "v=0"))
+        runCurrent()
+        session.moveTo(VoipCallState.Ended("peer-hangup"))
+        runCurrent()
+        advanceTimeBy(CARRIER_FALLBACK_GRACE_MS - 1)
+        runCurrent()
+        assertTrue(callLog.records.isEmpty())
+        assertTrue(missed.isEmpty())
+        advanceTimeBy(2)
+        runCurrent()
+        assertEquals(ArkCallType.MISSED, callLog.records.single().type)
+        assertEquals(1, missed.size)
+    }
+
+    @Test
+    fun aCarrierCallFromSomeoneElseDoesNotCancelTheMissedArkRow() = runTest {
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        coordinator.onIncoming(IncomingArkCall("ARK-BBBB-BBBB", "v=0"))
+        runCurrent()
+        session.moveTo(VoipCallState.Ended("peer-hangup"))
+        runCurrent()
+        carrierRinging.tryEmit("+358 40 1234567")
+        runCurrent()
+        advanceTimeBy(CARRIER_FALLBACK_GRACE_MS + 1)
+        runCurrent()
+        assertEquals(ArkCallType.MISSED, callLog.records.single().type)
+        assertEquals(1, missed.size)
+    }
+
+    @Test
+    fun aHiddenCarrierCallDoesNotCancelTheMissedArkRow() = runTest {
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        coordinator.onIncoming(IncomingArkCall("ARK-BBBB-BBBB", "v=0"))
+        runCurrent()
+        session.moveTo(VoipCallState.Ended("peer-hangup"))
+        runCurrent()
+        carrierRinging.tryEmit(null)
+        runCurrent()
+        advanceTimeBy(CARRIER_FALLBACK_GRACE_MS + 1)
+        runCurrent()
+        assertEquals(ArkCallType.MISSED, callLog.records.single().type)
+    }
+
+    @Test
+    fun anAnsweredArkCallWhoseMediaFailedIsHeldForTheCarrierToo() = runTest {
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        coordinator.onIncoming(IncomingArkCall("ARK-BBBB-BBBB", "v=0"))
+        runCurrent()
+        telecom.lastAnswer!!()
+        session.moveTo(VoipCallState.Ended("media-error"))
+        runCurrent()
+        assertTrue(callLog.records.isEmpty())
+        carrierRinging.tryEmit("+358 44 5552841")
+        runCurrent()
+        advanceTimeBy(CARRIER_FALLBACK_GRACE_MS + 1)
+        runCurrent()
+        assertTrue(callLog.records.isEmpty())
+        assertTrue(missed.isEmpty())
+    }
+
+    @Test
+    fun aLocalRejectIsLoggedAtOnce() = runTest {
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        coordinator.onIncoming(IncomingArkCall("ARK-BBBB-BBBB", "v=0"))
+        runCurrent()
+        ui.lastHandle!!.reject()
+        session.moveTo(VoipCallState.Ended("local-reject"))
+        runCurrent()
+        assertEquals(ArkCallType.INCOMING, callLog.records.single().type)
+        assertTrue(missed.isEmpty())
+    }
+
+    @Test
+    fun aConnectedCallIsLoggedAtOnce() = runTest {
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        coordinator.onIncoming(IncomingArkCall("ARK-BBBB-BBBB", "v=0"))
+        runCurrent()
+        telecom.lastAnswer!!()
+        session.moveTo(VoipCallState.InCall)
+        runCurrent()
+        session.moveTo(VoipCallState.Ended("peer-hangup"))
+        runCurrent()
+        assertEquals(ArkCallType.INCOMING, callLog.records.single().type)
+    }
+
+    @Test
+    fun theGraceWaitDoesNotBlockTheNextArkCall() = runTest {
+        val coordinator = coordinator(backgroundScope, FakeReach(reachable = true))
+        coordinator.onIncoming(IncomingArkCall("ARK-BBBB-BBBB", "v=0"))
+        runCurrent()
+        session.moveTo(VoipCallState.Ended("peer-hangup"))
+        runCurrent()
+        session.moveTo(VoipCallState.Idle)
+        coordinator.onIncoming(IncomingArkCall("ARK-BBBB-BBBB", "v=0"))
+        runCurrent()
+        assertEquals(2, telecom.added.size)
     }
 }

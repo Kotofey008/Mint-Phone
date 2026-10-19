@@ -1,5 +1,26 @@
 package org.jarsi.arkphone.telecom
 
+import android.telecom.TelecomManager
+
+/**
+ * The name every ringing surface shows and speaks for a carrier call: the
+ * saved contact first, then the name the network sent. A number the caller
+ * hid (or the network could not vouch for) keeps no name at all — the
+ * carrier still attaches a display name to such calls, and it is only a
+ * placeholder in the network's own language: a restricted number arrived
+ * with "Anonymous" and was announced as "Anonymous soittaa"
+ * (field-hit 2026-10-19). The stock dialer shows "Private number" there.
+ */
+internal fun displayNameFor(
+    contactName: String?,
+    carrierName: String?,
+    numberPresentation: Int,
+): String? {
+    if (numberPresentation != TelecomManager.PRESENTATION_ALLOWED) return null
+    return contactName?.takeUnless(String::isBlank)
+        ?: carrierName?.takeUnless(String::isBlank)
+}
+
 /** Telephony's localized explanation for a call that ended in error;
  *  at least one field is non-null. */
 data class DisconnectError(val label: String?, val description: String?)

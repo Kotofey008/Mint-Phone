@@ -8,6 +8,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.transform
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 import org.jarsi.arkphone.BuildConfig
@@ -38,7 +39,9 @@ import org.jarsi.arkphone.voip.fcm.ArkFcmRegistration
 import org.jarsi.arkphone.voip.WebSocketConnector
 import org.jarsi.arkphone.voip.WorkerVoipAccountGateway
 import org.jarsi.arkphone.R
+import org.jarsi.arkphone.telecom.CallController
 import org.jarsi.arkphone.telecom.CallRuleEvaluator
+import org.jarsi.arkphone.telecom.CallStatus
 import org.jarsi.arkphone.telecom.DisconnectError
 import org.jarsi.arkphone.telecom.MissedCallNotifier
 import org.jarsi.arkphone.telecom.ProximityController
@@ -169,6 +172,7 @@ object VoipModule {
         missedCallNotifier: MissedCallNotifier,
         callRuleEvaluator: CallRuleEvaluator,
         permissionChecker: PermissionChecker,
+        callController: CallController,
         clock: Clock,
         @ApplicationScope scope: CoroutineScope,
     ): VoipCallCoordinator = VoipCallCoordinator(
@@ -215,6 +219,12 @@ object VoipModule {
                 ?: settingsCache.current.arkInternetCallsEnabled
         },
         ringback = ToneGeneratorRingback(scope),
+        // Carrier calls as the in-call service hands them to the controller;
+        // a ringing call is re-emitted on every list change, which is harmless.
+        carrierCallRinging = callController.calls.transform { calls ->
+            calls.filter { !it.viaArkCall && it.status == CallStatus.RINGING }
+                .forEach { emit(it.number) }
+        },
     )
 
     @Provides

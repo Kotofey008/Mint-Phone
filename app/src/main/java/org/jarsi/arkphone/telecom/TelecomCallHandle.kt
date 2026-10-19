@@ -3,6 +3,7 @@ package org.jarsi.arkphone.telecom
 import android.os.Build
 import android.telecom.Call
 import android.telecom.DisconnectCause
+import android.telecom.TelecomManager
 import android.telecom.VideoProfile
 import java.util.UUID
 
@@ -15,9 +16,13 @@ class TelecomCallHandle(private val call: Call) : CallHandle {
 
     override val displayName: String?
         get() {
-            val contactName = if (Build.VERSION.SDK_INT >= 30) call.details?.contactDisplayName else null
-            return contactName?.takeUnless(String::isBlank)
-                ?: call.details?.callerDisplayName?.takeUnless(String::isBlank)
+            val details = call.details
+            val contactName = if (Build.VERSION.SDK_INT >= 30) details?.contactDisplayName else null
+            return displayNameFor(
+                contactName = contactName,
+                carrierName = details?.callerDisplayName,
+                numberPresentation = details?.handlePresentation ?: TelecomManager.PRESENTATION_UNKNOWN,
+            )
         }
 
     override val telecomState: Int
