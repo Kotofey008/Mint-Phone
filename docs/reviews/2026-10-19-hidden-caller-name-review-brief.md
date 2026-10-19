@@ -1,7 +1,7 @@
 # Hidden-number caller name and the callee's carrier-fallback row — review request (2026-10-19)
 
 Starting point: `main` = `feature/voip-spike` = `3ea874d` (v1.28). The fix is one commit on
-`fix/hidden-caller-name-and-callee-rows`: `e835c6a`. Nothing is pushed or released; the version
+`fix/hidden-caller-name-and-callee-rows`: `f3c4e42`. Nothing is pushed or released; the version
 is still 1.28 / versionCode 16 and will be bumped to 1.28.1 / 17 only after this review.
 
 ## Field evidence (Pixel 9a, Android 17, fi-FI, Telia; 2026-10-19)
@@ -95,7 +95,7 @@ beta and debug APKs rebuilt. Release SHA-256 `a2fa13bbe10315faa713b7d2187ec9b6ea
 
 ## Round 2 request
 
-Review the two fix commits after `e835c6a` for the questions above, the widened in-front rule, and
+Review the two fix commits after `f3c4e42` for the questions above, the widened in-front rule, and
 anything the first round did not cover.
 
 ## Device test plan (after the review)
