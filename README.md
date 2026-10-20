@@ -126,6 +126,13 @@ English, Finnish, Swedish, German, French, Spanish, Estonian, Russian,
 Portuguese, Italian and Polish. The app follows the device language and falls
 back to English; Android 13 and newer can pick a language per app.
 
+## Support development
+
+If ARK-phone is useful to you, you can support its development:
+
+- [GitHub Sponsors](https://github.com/sponsors/jrs8205) — monthly or one-time
+- [Buy Me a Coffee](https://buymeacoffee.com/jrs8205) — no sign-up needed
+
 ## License
 
 GPL-3.0 — see [LICENSE](LICENSE). The author's other public apps are listed
