@@ -44,6 +44,7 @@ jobs:
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          chmod +x gradlew
           ./gradlew :app:assembleRelease \
             -PARKPHONE_STORE_FILE="$RUNNER_TEMP/release.jks" \
             -PARKPHONE_STORE_PASSWORD="$STORE_PASSWORD" \
