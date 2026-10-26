@@ -96,8 +96,7 @@
     <string name="contacts_favorites">Favoriten</string>
     <string name="contacts_empty">Keine Kontakte</string>
     <string name="contacts_no_permission">ARK-Telefon braucht Zugriff auf die Kontakte, um sie hier anzuzeigen.</string>
-    <string name="tab_home">Start</string>
-    <string name="tab_keypad">Wähltasten</string>
+    <string name="tab_calls">Anrufe</string>
     <string name="tab_recents">Anrufe</string>
     <string name="tab_messages">Nachrichten</string>
     <string name="tab_contacts">Kontakte</string>
@@ -162,6 +161,8 @@
     <string name="banner_set_default">Als Standard festlegen</string>
     <string name="dialpad_call">Anrufen</string>
     <string name="dialpad_delete">Ziffer löschen</string>
+    <string name="dialpad_show">Wähltasten anzeigen</string>
+    <string name="dialpad_hide">Wähltasten ausblenden</string>
     <string name="dialpad_long_press_plus">Pluszeichen eingeben</string>
     <string name="incall_unknown_caller">Unbekannte Nummer</string>
     <string name="incall_state_ringing">Eingehender Anruf</string>

@@ -96,8 +96,7 @@
     <string name="contacts_favorites">Ulubione</string>
     <string name="contacts_empty">Brak kontaktów</string>
     <string name="contacts_no_permission">ARK-telefon potrzebuje dostępu do kontaktów, aby je tutaj pokazywać.</string>
-    <string name="tab_home">Start</string>
-    <string name="tab_keypad">Klawiatura</string>
+    <string name="tab_calls">Połączenia</string>
     <string name="tab_recents">Ostatnie</string>
     <string name="tab_messages">Wiadomości</string>
     <string name="tab_contacts">Kontakty</string>
@@ -172,6 +171,8 @@
     <string name="banner_set_default">Ustaw jako domyślną</string>
     <string name="dialpad_call">Zadzwoń</string>
     <string name="dialpad_delete">Usuń cyfrę</string>
+    <string name="dialpad_show">Pokaż klawiaturę</string>
+    <string name="dialpad_hide">Ukryj klawiaturę</string>
     <string name="dialpad_long_press_plus">Wpisz znak plus</string>
     <string name="incall_unknown_caller">Nieznany numer</string>
     <string name="incall_state_ringing">Połączenie przychodzące</string>

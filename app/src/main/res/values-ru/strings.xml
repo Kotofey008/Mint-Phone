@@ -96,8 +96,7 @@
     <string name="contacts_favorites">Избранные</string>
     <string name="contacts_empty">Нет контактов</string>
     <string name="contacts_no_permission">ARK-телефону нужен доступ к контактам, чтобы показывать их здесь.</string>
-    <string name="tab_home">Главная</string>
-    <string name="tab_keypad">Клавиатура</string>
+    <string name="tab_calls">Вызовы</string>
     <string name="tab_recents">Недавние</string>
     <string name="tab_messages">Сообщения</string>
     <string name="tab_contacts">Контакты</string>
@@ -172,6 +171,8 @@
     <string name="banner_set_default">Сделать основным</string>
     <string name="dialpad_call">Позвонить</string>
     <string name="dialpad_delete">Удалить цифру</string>
+    <string name="dialpad_show">Показать клавиатуру</string>
+    <string name="dialpad_hide">Скрыть клавиатуру</string>
     <string name="dialpad_long_press_plus">Ввести знак плюс</string>
     <string name="incall_unknown_caller">Неизвестный номер</string>
     <string name="incall_state_ringing">Входящий вызов</string>

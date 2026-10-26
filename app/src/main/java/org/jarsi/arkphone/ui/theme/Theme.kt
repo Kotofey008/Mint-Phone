@@ -7,8 +7,12 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import top.yukonga.miuix.kmp.theme.ColorSchemeMode
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.theme.ThemeController
 
 /** Fixed call-action colors, independent of the theme, like in stock dialers. */
 val CallAnswerGreen = Color(0xFF188038)
@@ -40,5 +44,12 @@ fun ArkPhoneTheme(content: @Composable () -> Unit) {
         isDynamicColorAvailable(sdkInt) -> dynamicLightColorScheme(context)
         else -> ArkDarkColorScheme
     }
-    MaterialTheme(colorScheme = colorScheme, typography = ArkTypography, content = content)
+    MaterialTheme(colorScheme = colorScheme, typography = ArkTypography) {
+        // Miuix sits inside the Material theme so screens can move to Miuix
+        // components one at a time while the rest keeps its Material look.
+        // MonetSystem follows the system light/dark mode and wallpaper colors,
+        // matching the dynamic scheme above.
+        val miuixController = remember { ThemeController(ColorSchemeMode.MonetSystem) }
+        MiuixTheme(controller = miuixController, content = content)
+    }
 }

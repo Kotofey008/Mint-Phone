@@ -56,9 +56,11 @@ call over the carrier again. Your code and links are kept.
 
 ## Calls
 
-- **Keypad**: type a name or number; T9 matching finds contacts as you type.
-  Long-press 2–9 to assign or dial a speed dial. Paste a number from the
-  clipboard with the paste button.
+- **History and keypad**: the Calls tab opens on your call history. The round
+  call button at the bottom unfolds the keypad; scrolling the history or
+  pressing back folds it again. Type a name or number; T9 matching finds
+  contacts as you type. Long-press 2–9 to assign or dial a speed dial. Paste a
+  number from the clipboard by long-pressing the number.
 - **In a call**: mute, speaker, hold and the keypad are on the call screen.
   The screen turns off when the phone is at your ear.
 - **History**: search, and filter by missed, outgoing, blocked or WhatsApp

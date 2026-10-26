@@ -96,8 +96,7 @@
     <string name="contacts_favorites">Preferiti</string>
     <string name="contacts_empty">Nessun contatto</string>
     <string name="contacts_no_permission">ARK-telefono ha bisogno di accedere ai tuoi contatti per mostrarli qui.</string>
-    <string name="tab_home">Home</string>
-    <string name="tab_keypad">Tastiera</string>
+    <string name="tab_calls">Chiamate</string>
     <string name="tab_recents">Recenti</string>
     <string name="tab_messages">Messaggi</string>
     <string name="tab_contacts">Contatti</string>
@@ -167,6 +166,8 @@
     <string name="banner_set_default">Imposta come predefinita</string>
     <string name="dialpad_call">Chiama</string>
     <string name="dialpad_delete">Cancella cifra</string>
+    <string name="dialpad_show">Mostra tastiera</string>
+    <string name="dialpad_hide">Nascondi tastiera</string>
     <string name="dialpad_long_press_plus">Inserisci il segno più</string>
     <string name="incall_unknown_caller">Numero sconosciuto</string>
     <string name="incall_state_ringing">Chiamata in arrivo</string>

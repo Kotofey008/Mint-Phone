@@ -7,9 +7,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Message
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Contacts
-import androidx.compose.material.icons.filled.Dialpad
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
@@ -32,12 +31,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.ui.components.rememberHaptics
+import org.jarsi.arkphone.ui.calls.CallsScreen
 import org.jarsi.arkphone.ui.contacts.ContactsScreen
-import org.jarsi.arkphone.ui.dialpad.DialpadScreen
-import org.jarsi.arkphone.ui.home.HomeScreen
 import org.jarsi.arkphone.ui.messages.MessagesScreen
 
-enum class MainTab { HOME, KEYPAD, MESSAGES, CONTACTS }
+/** Calls is the call history with the keypad folded into it. */
+enum class MainTab { CALLS, MESSAGES, CONTACTS }
 
 @Composable
 fun MainScreen(
@@ -56,9 +55,9 @@ fun MainScreen(
     onRequestSmsRole: () -> Unit = {},
     unreadMessages: Int = 0,
 ) {
-    var selectedTab by rememberSaveable { mutableStateOf(MainTab.HOME) }
+    var selectedTab by rememberSaveable { mutableStateOf(MainTab.CALLS) }
     LaunchedEffect(requestedNumber) {
-        if (requestedNumber != null) selectedTab = MainTab.KEYPAD
+        if (requestedNumber != null) selectedTab = MainTab.CALLS
     }
     // A tap on the Viestit launcher icon lands on the Messages tab.
     LaunchedEffect(messagesRequested) {
@@ -67,8 +66,8 @@ fun MainScreen(
             onMessagesRequestConsumed()
         }
     }
-    BackHandler(enabled = selectedTab != MainTab.HOME) {
-        selectedTab = MainTab.HOME
+    BackHandler(enabled = selectedTab != MainTab.CALLS) {
+        selectedTab = MainTab.CALLS
     }
     Scaffold(
         bottomBar = {
@@ -84,12 +83,12 @@ fun MainScreen(
                 DefaultDialerBanner(onRequestDefaultDialer)
             }
             when (selectedTab) {
-                MainTab.HOME -> HomeScreen(onCall = onCall, onRequestPermissions = onRequestPermissions)
-                MainTab.KEYPAD -> DialpadScreen(
+                MainTab.CALLS -> CallsScreen(
                     onCall = onCall,
+                    onRequestPermissions = onRequestPermissions,
+                    onVoicemail = onVoicemail,
                     initialNumber = requestedNumber,
                     onInitialNumberConsumed = onRequestedNumberConsumed,
-                    onVoicemail = onVoicemail,
                 )
                 MainTab.MESSAGES -> MessagesScreen(
                     onOpenThread = onOpenThread,
@@ -116,16 +115,10 @@ fun ArkBottomBar(
     }
     NavigationBar {
         NavigationBarItem(
-            selected = selected == MainTab.HOME,
-            onClick = { select(MainTab.HOME) },
-            icon = { Icon(Icons.Filled.Home, contentDescription = null) },
-            label = { Text(stringResource(R.string.tab_home)) },
-        )
-        NavigationBarItem(
-            selected = selected == MainTab.KEYPAD,
-            onClick = { select(MainTab.KEYPAD) },
-            icon = { Icon(Icons.Filled.Dialpad, contentDescription = null) },
-            label = { Text(stringResource(R.string.tab_keypad)) },
+            selected = selected == MainTab.CALLS,
+            onClick = { select(MainTab.CALLS) },
+            icon = { Icon(Icons.Filled.Call, contentDescription = null) },
+            label = { Text(stringResource(R.string.tab_calls)) },
         )
         NavigationBarItem(
             selected = selected == MainTab.MESSAGES,

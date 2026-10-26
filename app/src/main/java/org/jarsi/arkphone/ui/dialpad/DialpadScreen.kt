@@ -67,18 +67,11 @@ fun DialpadScreen(
             onInitialNumberConsumed()
         }
     }
-    val context = LocalContext.current
-    var pendingSpeedDialDigit by rememberSaveable { mutableStateOf<Int?>(null) }
-    val speedDialPicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult(),
-    ) { result ->
-        val digit = pendingSpeedDialDigit
-        pendingSpeedDialDigit = null
-        val uri = result.data?.data
-        if (digit != null && result.resultCode == Activity.RESULT_OK && uri != null) {
-            phoneNumberFromPickedUri(context, uri)?.let { viewModel.saveSpeedDial(digit, it) }
-        }
-    }
+    val onSpeedDial = rememberSpeedDialAction(
+        speedDial = uiState.speedDial,
+        onCall = onCall,
+        onSave = viewModel::saveSpeedDial,
+    )
     Surface(Modifier.fillMaxSize()) {
         DialpadContent(
             uiState = uiState,
@@ -89,23 +82,46 @@ fun DialpadScreen(
             onPaste = viewModel::onPaste,
             onClear = viewModel::onClear,
             onVoicemail = onVoicemail,
-            onSpeedDial = { digit ->
-                val assigned = uiState.speedDial[digit]
-                if (assigned != null) {
-                    onCall(assigned)
-                } else {
-                    pendingSpeedDialDigit = digit
-                    runCatching {
-                        speedDialPicker.launch(
-                            Intent(
-                                Intent.ACTION_PICK,
-                                ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-                            ),
-                        )
-                    }
-                }
-            },
+            onSpeedDial = onSpeedDial,
         )
+    }
+}
+
+/** Long-press on a digit key: dials the assigned speed-dial number, or opens
+ *  the contact picker to assign one. Shared by every screen with a keypad. */
+@Composable
+internal fun rememberSpeedDialAction(
+    speedDial: Map<Int, String>,
+    onCall: (String) -> Unit,
+    onSave: (digit: Int, number: String) -> Unit,
+): (Int) -> Unit {
+    val context = LocalContext.current
+    var pendingSpeedDialDigit by rememberSaveable { mutableStateOf<Int?>(null) }
+    val speedDialPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        val digit = pendingSpeedDialDigit
+        pendingSpeedDialDigit = null
+        val uri = result.data?.data
+        if (digit != null && result.resultCode == Activity.RESULT_OK && uri != null) {
+            phoneNumberFromPickedUri(context, uri)?.let { onSave(digit, it) }
+        }
+    }
+    return { digit ->
+        val assigned = speedDial[digit]
+        if (assigned != null) {
+            onCall(assigned)
+        } else {
+            pendingSpeedDialDigit = digit
+            runCatching {
+                speedDialPicker.launch(
+                    Intent(
+                        Intent.ACTION_PICK,
+                        ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                    ),
+                )
+            }
+        }
     }
 }
 
@@ -130,7 +146,6 @@ fun DialpadContent(
     onClear: () -> Unit = {},
 ) {
     val haptics = rememberHaptics()
-    val clipboard = LocalClipboardManager.current
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.Bottom,
@@ -157,57 +172,13 @@ fun DialpadContent(
                 )
             }
         }
-        Surface(
-            shape = RoundedCornerShape(28.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-        ) {
-            Row(
-                modifier = Modifier.padding(start = 24.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                val pasteLabel = stringResource(R.string.dialpad_paste)
-                Text(
-                    text = uiState.displayNumber.ifEmpty { uiState.number },
-                    style = MaterialTheme.typography.headlineMedium,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .weight(1f)
-                        .combinedClickable(
-                            onClick = {},
-                            onLongClickLabel = pasteLabel,
-                            onLongClick = {
-                                haptics.longPress()
-                                clipboard.getText()?.text?.let(onPaste)
-                            },
-                        ),
-                )
-                val clearLabel = stringResource(R.string.dialpad_clear)
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .combinedClickable(
-                            onClick = {
-                                haptics.click()
-                                onDelete()
-                            },
-                            onLongClickLabel = clearLabel,
-                            onLongClick = {
-                                haptics.longPress()
-                                onClear()
-                            },
-                        )
-                        .padding(12.dp),
-                ) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.Backspace,
-                        contentDescription = stringResource(R.string.dialpad_delete),
-                    )
-                }
-            }
-        }
+        DialpadNumberField(
+            uiState = uiState,
+            onDelete = onDelete,
+            onPaste = onPaste,
+            onClear = onClear,
+            modifier = Modifier.padding(vertical = 16.dp),
+        )
         DialpadGrid(onKey = onKey, onVoicemail = onVoicemail, onSpeedDial = onSpeedDial)
         FloatingActionButton(
             onClick = {
@@ -217,6 +188,71 @@ fun DialpadContent(
             modifier = Modifier.padding(top = 16.dp).size(72.dp),
         ) {
             Icon(Icons.Filled.Call, contentDescription = stringResource(R.string.dialpad_call))
+        }
+    }
+}
+
+/** The typed number with its delete button: long-press the number to paste,
+ *  long-press delete to clear everything. */
+@Composable
+internal fun DialpadNumberField(
+    uiState: DialpadUiState,
+    onDelete: () -> Unit,
+    onPaste: (String) -> Unit,
+    onClear: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val haptics = rememberHaptics()
+    val clipboard = LocalClipboardManager.current
+    Surface(
+        shape = RoundedCornerShape(28.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 24.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val pasteLabel = stringResource(R.string.dialpad_paste)
+            Text(
+                text = uiState.displayNumber.ifEmpty { uiState.number },
+                style = MaterialTheme.typography.headlineMedium,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .weight(1f)
+                    .combinedClickable(
+                        onClick = {},
+                        onLongClickLabel = pasteLabel,
+                        onLongClick = {
+                            haptics.longPress()
+                            clipboard.getText()?.text?.let(onPaste)
+                        },
+                    ),
+            )
+            val clearLabel = stringResource(R.string.dialpad_clear)
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .combinedClickable(
+                        onClick = {
+                            haptics.click()
+                            onDelete()
+                        },
+                        onLongClickLabel = clearLabel,
+                        onLongClick = {
+                            haptics.longPress()
+                            onClear()
+                        },
+                    )
+                    .padding(12.dp),
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.Backspace,
+                    contentDescription = stringResource(R.string.dialpad_delete),
+                )
+            }
         }
     }
 }

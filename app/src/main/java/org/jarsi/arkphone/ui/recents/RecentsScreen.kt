@@ -7,6 +7,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -119,6 +120,7 @@ fun RecentsContent(
     onOpenDetails: (String) -> Unit = {},
     onOpenNameDetails: (String) -> Unit = {},
     onWhatsAppCall: (CallLogEntry) -> Unit = {},
+    contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
     when {
         uiState.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -159,7 +161,7 @@ fun RecentsContent(
                     listState.scrollToItem(0)
                 }
             }
-            LazyColumn(Modifier.fillMaxSize(), state = listState) {
+            LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = contentPadding) {
                 items(uiState.entries, key = { it.entry.id }) { grouped ->
                     RecentsRow(
                         grouped = grouped,

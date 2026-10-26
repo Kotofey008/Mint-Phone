@@ -96,8 +96,7 @@
     <string name="contacts_favorites">Favoriter</string>
     <string name="contacts_empty">Inga kontakter</string>
     <string name="contacts_no_permission">ARK-telefon behöver åtkomst till kontakterna för att visa dem här.</string>
-    <string name="tab_home">Hem</string>
-    <string name="tab_keypad">Knappsats</string>
+    <string name="tab_calls">Samtal</string>
     <string name="tab_recents">Senaste</string>
     <string name="tab_messages">Meddelanden</string>
     <string name="tab_contacts">Kontakter</string>
@@ -162,6 +161,8 @@
     <string name="banner_set_default">Ange som standard</string>
     <string name="dialpad_call">Ring</string>
     <string name="dialpad_delete">Radera siffra</string>
+    <string name="dialpad_show">Visa knappsatsen</string>
+    <string name="dialpad_hide">Dölj knappsatsen</string>
     <string name="dialpad_long_press_plus">Skriv plustecken</string>
     <string name="incall_unknown_caller">Okänt nummer</string>
     <string name="incall_state_ringing">Inkommande samtal</string>

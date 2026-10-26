@@ -19,21 +19,21 @@ class ArkBottomBarTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun showsAllThreeTabsAndReportsSelection() {
-        var selected = MainTab.HOME
+    fun showsAllThreeTabsInOrderAndReportsSelection() {
+        var selected = MainTab.CALLS
         composeRule.setContent {
             ArkBottomBar(selected = selected, onSelect = { selected = it })
         }
-        composeRule.onNodeWithText("Home").assertIsDisplayed()
-        composeRule.onNodeWithText("Keypad").assertIsDisplayed()
+        composeRule.onNodeWithText("Calls").assertIsDisplayed()
+        composeRule.onNodeWithText("Messages").assertIsDisplayed()
         composeRule.onNodeWithText("Contacts").assertIsDisplayed()
-        composeRule.onNodeWithText("Keypad").performClick()
-        assertEquals(MainTab.KEYPAD, selected)
+        composeRule.onNodeWithText("Messages").performClick()
+        assertEquals(MainTab.MESSAGES, selected)
     }
 
     @Test
     fun contactsTabIsSelectable() {
-        var selected = MainTab.HOME
+        var selected = MainTab.CALLS
         composeRule.setContent {
             ArkBottomBar(selected = selected, onSelect = { selected = it })
         }

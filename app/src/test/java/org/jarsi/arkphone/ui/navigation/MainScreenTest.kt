@@ -18,7 +18,7 @@ class MainScreenTest {
     @Test
     fun theMessagesTabShowsTheUnreadBadge() {
         composeRule.setContent {
-            ArkBottomBar(selected = MainTab.HOME, onSelect = {}, unreadMessages = 3)
+            ArkBottomBar(selected = MainTab.CALLS, onSelect = {}, unreadMessages = 3)
         }
         composeRule.onNodeWithText("3", useUnmergedTree = true).assertExists()
     }
@@ -26,7 +26,7 @@ class MainScreenTest {
     @Test
     fun noBadgeWithoutUnreadConversations() {
         composeRule.setContent {
-            ArkBottomBar(selected = MainTab.HOME, onSelect = {}, unreadMessages = 0)
+            ArkBottomBar(selected = MainTab.CALLS, onSelect = {}, unreadMessages = 0)
         }
         composeRule.onNodeWithText("0", useUnmergedTree = true).assertDoesNotExist()
     }

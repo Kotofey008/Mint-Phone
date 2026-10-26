@@ -40,6 +40,11 @@ android {
         targetSdk = 36
         versionCode = 17
         versionName = appVersionName
+        // Test builds can be trimmed to one ABI, e.g. -Parkphone.abi=arm64-v8a.
+        // Without the property every ABI the dependencies ship stays in.
+        providers.gradleProperty("arkphone.abi").orNull?.let { abi ->
+            ndk { abiFilters += abi.split(',').map(String::trim) }
+        }
         // The ARK signaling worker. The address sits inside every public APK,
         // so it is no secret; local.properties overrides it for a self-hosted
         // worker (arkphone.voip.workerUrl).
@@ -138,6 +143,7 @@ dependencies {
     implementation(libs.compose.ui)
     implementation(libs.compose.material3)
     implementation(libs.compose.material.icons.extended)
+    implementation(libs.miuix.ui)
     implementation(libs.compose.ui.tooling.preview)
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)
