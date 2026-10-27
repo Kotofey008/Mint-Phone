@@ -32,12 +32,12 @@ base {
 
 android {
     namespace = "org.jarsi.arkphone"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "org.jarsi.arkphone"
         minSdk = 26
-        targetSdk = 36
+        targetSdk = 37
         versionCode = 17
         versionName = appVersionName
         // Test builds can be trimmed to one ABI, e.g. -Parkphone.abi=arm64-v8a.
