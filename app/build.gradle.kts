@@ -135,6 +135,16 @@ kotlin {
     }
 }
 
+// Hilt's processor reads Kotlin class metadata and fails on Miuix's 2.4 metadata
+// ("maximum supported version is 2.3.0"). Use a newer reader everywhere.
+configurations.configureEach {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "org.jetbrains.kotlin" && requested.name == "kotlin-metadata-jvm") {
+            useVersion(libs.versions.kotlinMetadata.get())
+        }
+    }
+}
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.exifinterface)

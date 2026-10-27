@@ -24,6 +24,9 @@ googleServices = "4.5.0"
 firebaseMessaging = "25.1.1"
 coreTelecom = "1.0.1"
 miuix = "0.9.4"
+# Dagger/Hilt read Kotlin metadata with this library; Miuix is compiled with
+# Kotlin 2.4, newer than the reader Hilt bundles (max 2.3.0).
+kotlinMetadata = "2.4.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -57,6 +60,7 @@ robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "
 androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxTestExt" }
 firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging", version.ref = "firebaseMessaging" }
 androidx-core-telecom = { group = "androidx.core", name = "core-telecom", version.ref = "coreTelecom" }
+kotlin-metadata-jvm = { group = "org.jetbrains.kotlin", name = "kotlin-metadata-jvm", version.ref = "kotlinMetadata" }
 miuix-ui = { group = "top.yukonga.miuix.kmp", name = "miuix-ui", version.ref = "miuix" }
 
 [plugins]
