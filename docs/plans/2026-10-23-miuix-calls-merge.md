@@ -39,3 +39,24 @@ Compose BOM. If the AAR metadata check asks for a higher `compileSdk`, raise it.
    detail, contact card).
 3. Replace Material 3 once nothing references it; then drop the nested
    `MaterialTheme` in `ArkPhoneTheme`.
+
+## Stage 2: Miuix look for the Calls tab
+- `compileSdk` / `targetSdk` are 37 (Miuix 0.9.4 needs SDK 37).
+- Added `miuix-preference` (dropdown) and `miuix-icons` next to `miuix-ui`.
+- `MainScreen` now uses the Miuix `Scaffold`, `NavigationBar`, `Card`/`TextButton`
+  (default-dialer banner). Overlay popups such as the dropdown need that Scaffold.
+- Theme: API 31+ uses `MonetSystem` (system light/dark and wallpaper colors);
+  API 26-30 uses Miuix's own dark palette (the app is dark there already).
+- Calls tab: Miuix `SearchBar`/`InputField`, `Card` rows with `BasicComponent`,
+  `OverlayDropdownPreference` titled "Recents" for the call filter, Miuix
+  `FloatingActionButton`s. Favorites (no heading) scroll with the list.
+- Keypad: flat keys without outlines, round call button in the middle, round
+  hide button under the right-hand key at the spot the folded call button uses.
+- Typing digits narrows the list: matching calls (name by T9, number in any
+  dial form, or number of a matching contact) plus matching contacts with no
+  calls. Logic: `DialpadMatcher.matchList`, exposed as `DialpadUiState.listMatch`.
+  With the keypad folded and digits still typed, a banner row shows the number
+  and clears the filter.
+- Unchanged on purpose: the Messages and Contacts tabs, `DialpadGrid` (used by
+  the in-call DTMF pad), `SearchRow`, `ContactAvatar`.
+- Old Material `DialpadScreen`/`DialpadContent` and `RecentsFilterChips` removed.

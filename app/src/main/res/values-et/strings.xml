@@ -35,7 +35,6 @@
     <string name="dialpad_long_press_speed_dial">Kiirvalimine</string>
     <string name="dialpad_paste">Kleebi number</string>
     <string name="dialpad_clear">Kustuta number</string>
-    <string name="dialpad_history_suggestion">Varasem kõne</string>
     <string name="recents_search_hint">Otsi kõnesid</string>
     <string name="recents_filter_all">Kõik</string>
     <string name="recents_filter_missed">Vastamata</string>
@@ -163,6 +162,7 @@
     <string name="dialpad_delete">Kustuta number</string>
     <string name="dialpad_show">Näita klahvistikku</string>
     <string name="dialpad_hide">Peida klahvistik</string>
+    <string name="calls_clear_number">Kustuta number</string>
     <string name="dialpad_long_press_plus">Sisesta plussmärk</string>
     <string name="incall_unknown_caller">Tundmatu number</string>
     <string name="incall_state_ringing">Sissetulev kõne</string>

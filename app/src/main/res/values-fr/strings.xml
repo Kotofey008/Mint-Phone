@@ -35,7 +35,6 @@
     <string name="dialpad_long_press_speed_dial">Numérotation rapide</string>
     <string name="dialpad_paste">Coller le numéro</string>
     <string name="dialpad_clear">Effacer le numéro</string>
-    <string name="dialpad_history_suggestion">Appel précédent</string>
     <string name="recents_search_hint">Rechercher des appels</string>
     <string name="recents_filter_all">Tous</string>
     <string name="recents_filter_missed">Manqués</string>
@@ -168,6 +167,7 @@
     <string name="dialpad_delete">Effacer le chiffre</string>
     <string name="dialpad_show">Afficher le clavier</string>
     <string name="dialpad_hide">Masquer le clavier</string>
+    <string name="calls_clear_number">Effacer le numéro</string>
     <string name="dialpad_long_press_plus">Saisir le signe plus</string>
     <string name="incall_unknown_caller">Numéro inconnu</string>
     <string name="incall_state_ringing">Appel entrant</string>

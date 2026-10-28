@@ -29,6 +29,8 @@ data class DialpadUiState(
     val suggestions: List<Contact> = emptyList(),
     val historySuggestions: List<HistorySuggestion> = emptyList(),
     val speedDial: Map<Int, String> = emptyMap(),
+    /** The whole call list narrowed to what is typed; null while nothing is typed. */
+    val listMatch: DialpadListMatch? = null,
 )
 
 /** A call-log number matching the typed prefix, offered like a contact hit. */
@@ -59,6 +61,7 @@ class DialpadViewModel @Inject constructor(
     private data class Suggestions(
         val contacts: List<Contact> = emptyList(),
         val history: List<HistorySuggestion> = emptyList(),
+        val listMatch: DialpadListMatch? = null,
     )
 
     /** Matching times libphonenumber over the whole call log, so it runs off
@@ -77,8 +80,11 @@ class DialpadViewModel @Inject constructor(
             val e164 = { candidate: String ->
                 PhoneNumberUtils.formatNumberToE164(candidate, country)
             }
+            val matchedContacts = DialpadMatcher.filter(contacts, typed, e164)
             Suggestions(
-                contacts = DialpadMatcher.filter(contacts, typed, e164).take(3),
+                listMatch = typed.takeIf { it.isNotEmpty() }
+                    ?.let { DialpadMatcher.matchList(log, matchedContacts, it, e164) },
+                contacts = matchedContacts.take(3),
                 history = DialpadMatcher
                     .filterHistory(log, contacts, typed, e164)
                     .take(3)
@@ -102,6 +108,7 @@ class DialpadViewModel @Inject constructor(
                 suggestions = matched.contacts,
                 historySuggestions = matched.history,
                 speedDial = speedDial,
+                listMatch = matched.listMatch,
             )
         }.stateIn(
             scope = viewModelScope,

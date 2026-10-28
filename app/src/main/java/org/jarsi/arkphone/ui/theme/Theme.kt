@@ -47,9 +47,15 @@ fun ArkPhoneTheme(content: @Composable () -> Unit) {
     MaterialTheme(colorScheme = colorScheme, typography = ArkTypography) {
         // Miuix sits inside the Material theme so screens can move to Miuix
         // components one at a time while the rest keeps its Material look.
-        // MonetSystem follows the system light/dark mode and wallpaper colors,
-        // matching the dynamic scheme above.
-        val miuixController = remember { ThemeController(ColorSchemeMode.MonetSystem) }
+        // With dynamic color (API 31+) Miuix takes the system Monet palette and
+        // light/dark setting; below that it uses its own palette, dark like
+        // the rest of the app on those versions.
+        val miuixMode = when {
+            isDynamicColorAvailable(sdkInt) -> ColorSchemeMode.MonetSystem
+            darkTheme -> ColorSchemeMode.Dark
+            else -> ColorSchemeMode.Light
+        }
+        val miuixController = remember(miuixMode) { ThemeController(miuixMode) }
         MiuixTheme(controller = miuixController, content = content)
     }
 }

@@ -35,7 +35,6 @@
     <string name="dialpad_long_press_speed_dial">Kurzwahl</string>
     <string name="dialpad_paste">Nummer einfügen</string>
     <string name="dialpad_clear">Nummer löschen</string>
-    <string name="dialpad_history_suggestion">Früherer Anruf</string>
     <string name="recents_search_hint">Anrufe durchsuchen</string>
     <string name="recents_filter_all">Alle</string>
     <string name="recents_filter_missed">Verpasst</string>
@@ -163,6 +162,7 @@
     <string name="dialpad_delete">Ziffer löschen</string>
     <string name="dialpad_show">Wähltasten anzeigen</string>
     <string name="dialpad_hide">Wähltasten ausblenden</string>
+    <string name="calls_clear_number">Nummer löschen</string>
     <string name="dialpad_long_press_plus">Pluszeichen eingeben</string>
     <string name="incall_unknown_caller">Unbekannte Nummer</string>
     <string name="incall_state_ringing">Eingehender Anruf</string>

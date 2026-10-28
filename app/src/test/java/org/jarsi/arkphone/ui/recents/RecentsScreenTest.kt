@@ -15,6 +15,7 @@ import org.jarsi.arkphone.data.model.CallLogEntry
 import org.jarsi.arkphone.data.model.CallSource
 import org.jarsi.arkphone.data.model.CallType
 import org.jarsi.arkphone.data.model.SimAccount
+import org.jarsi.arkphone.ui.MiuixTestHost
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Rule
@@ -54,6 +55,7 @@ class RecentsScreenTest {
         onWhatsAppCall: (CallLogEntry) -> Unit = {},
     ) {
         composeRule.setContent {
+            MiuixTestHost {
             RecentsContent(
                 uiState = RecentsUiState(
                     loading = false,
@@ -66,6 +68,7 @@ class RecentsScreenTest {
                 onOpenNameDetails = onOpenNameDetails,
                 onWhatsAppCall = onWhatsAppCall,
             )
+            }
         }
     }
 

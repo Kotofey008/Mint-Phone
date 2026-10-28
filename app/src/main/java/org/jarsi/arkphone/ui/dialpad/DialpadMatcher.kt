@@ -4,7 +4,55 @@ import org.jarsi.arkphone.data.model.CallLogEntry
 import org.jarsi.arkphone.data.model.CallType
 import org.jarsi.arkphone.data.model.Contact
 
+/** What the typed digits leave of the whole call history: the call rows to
+ *  keep, and matching contacts that have never been called or called by. */
+data class DialpadListMatch(
+    val callIds: Set<Long>,
+    val contactsWithoutCalls: List<Contact>,
+)
+
 object DialpadMatcher {
+
+    /**
+     * Filters the full call log by the typed digits. A call stays when the
+     * caller's name matches (T9), the number matches in any dial form, or its
+     * number belongs to a matching contact. Matching contacts that appear in
+     * no call at all are returned separately so they can still be listed.
+     * [matchedContacts] must come from [filter] for the same [query].
+     */
+    fun matchList(
+        entries: List<CallLogEntry>,
+        matchedContacts: List<Contact>,
+        query: String,
+        e164: (String) -> String?,
+    ): DialpadListMatch {
+        val typed = query.dialableCharacters()
+        val contactKeys = matchedContacts.mapNotNull { it.phoneNumber }
+            .map { canonical(it, e164) }
+            .toSet()
+        val callKeys = mutableSetOf<String>()
+        val ids = mutableSetOf<Long>()
+        for (entry in entries) {
+            val stripped = entry.number.dialableCharacters()
+            val key = stripped.takeIf { it.isNotEmpty() }?.let { e164(it) ?: it }
+            if (key != null) callKeys += key
+            val byName = entry.displayName?.let { matches(it, query) } == true
+            val byContact = key != null && key in contactKeys
+            val byNumber = stripped.isNotEmpty() && typed.isNotEmpty() && (
+                if (typed.length < HISTORY_MIN_TYPED) {
+                    stripped.startsWith(typed)
+                } else {
+                    dialForms(stripped, e164).any { it.startsWith(typed) }
+                }
+                )
+            if (byName || byContact || byNumber) ids += entry.id
+        }
+        val withoutCalls = matchedContacts.filter { contact ->
+            val number = contact.phoneNumber ?: return@filter false
+            canonical(number, e164) !in callKeys
+        }
+        return DialpadListMatch(ids, withoutCalls)
+    }
 
     fun filterHistory(
         entries: List<CallLogEntry>,

@@ -160,4 +160,47 @@ class DialpadMatcherTest {
         )
         assertTrue(filterHistory(entries, query = "040").isEmpty())
     }
+
+    @Test
+    fun matchListKeepsCallsWhoseNumberStartsWithTheTypedDigits() {
+        val entries = listOf(entry(1, "0401234567"), entry(2, "0507654321"))
+        val match = DialpadMatcher.matchList(entries, emptyList(), "040", ::fakeE164)
+        assertEquals(setOf(1L), match.callIds)
+    }
+
+    @Test
+    fun matchListFindsTheSameNumberTypedInInternationalForm() {
+        val entries = listOf(entry(1, "0401234567"), entry(2, "0507654321"))
+        val match = DialpadMatcher.matchList(entries, emptyList(), "+358401", ::fakeE164)
+        assertEquals(setOf(1L), match.callIds)
+    }
+
+    @Test
+    fun matchListKeepsEveryCallOfAMatchingContact() {
+        val alice = contact(1, "Alice", "0509999999")
+        val entries = listOf(entry(1, "0509999999"), entry(2, "0507654321"))
+        // "25423" spells ALICE on the keypad; the contact matches by name.
+        val matchedContacts = DialpadMatcher.filter(listOf(alice), "25423", ::fakeE164)
+        val match = DialpadMatcher.matchList(entries, matchedContacts, "25423", ::fakeE164)
+        assertEquals(setOf(1L), match.callIds)
+        assertTrue(match.contactsWithoutCalls.isEmpty())
+    }
+
+    @Test
+    fun matchListReturnsMatchingContactsThatWereNeverCalled() {
+        val neverCalled = contact(1, "Carol", "0401111111")
+        val called = contact(2, "Dave", "0402222222")
+        val entries = listOf(entry(1, "0402222222"))
+        val matchedContacts = DialpadMatcher.filter(listOf(neverCalled, called), "040", ::fakeE164)
+        val match = DialpadMatcher.matchList(entries, matchedContacts, "040", ::fakeE164)
+        assertEquals(setOf(1L), match.callIds)
+        assertEquals(listOf(neverCalled), match.contactsWithoutCalls)
+    }
+
+    @Test
+    fun matchListWithOnlyStarsOrHashesMatchesNoNumbers() {
+        val entries = listOf(entry(1, "0401234567"))
+        val match = DialpadMatcher.matchList(entries, emptyList(), "*#", ::fakeE164)
+        assertTrue(match.callIds.isEmpty())
+    }
 }

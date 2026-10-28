@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.jarsi.arkphone.ui.MiuixTestHost
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -22,7 +23,7 @@ class ArkBottomBarTest {
     fun showsAllThreeTabsInOrderAndReportsSelection() {
         var selected = MainTab.CALLS
         composeRule.setContent {
-            ArkBottomBar(selected = selected, onSelect = { selected = it })
+            MiuixTestHost { ArkBottomBar(selected = selected, onSelect = { selected = it }) }
         }
         composeRule.onNodeWithText("Calls").assertIsDisplayed()
         composeRule.onNodeWithText("Messages").assertIsDisplayed()
@@ -35,7 +36,7 @@ class ArkBottomBarTest {
     fun contactsTabIsSelectable() {
         var selected = MainTab.CALLS
         composeRule.setContent {
-            ArkBottomBar(selected = selected, onSelect = { selected = it })
+            MiuixTestHost { ArkBottomBar(selected = selected, onSelect = { selected = it }) }
         }
         composeRule.onNodeWithText("Contacts").performClick()
         assertEquals(MainTab.CONTACTS, selected)
