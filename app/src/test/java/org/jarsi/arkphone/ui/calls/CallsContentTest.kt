@@ -90,7 +90,7 @@ class CallsContentTest {
     }
 
     @Test
-    fun recentsRowOpensDetailsAndTheTrailingIconCalls() {
+    fun tappingARecentsRowCallsAndTheChevronOpensDetails() {
         val called = mutableListOf<String>()
         val opened = mutableListOf<String>()
         val entry = CallLogEntry(
@@ -116,10 +116,10 @@ class CallsContentTest {
             }
         }
         composeRule.onNodeWithText("Alice").performClick()
-        assertEquals(listOf("0401234567"), opened)
-        assertEquals(emptyList<String>(), called)
-        composeRule.onNodeWithContentDescription("Call").performClick()
         assertEquals(listOf("0401234567"), called)
+        assertEquals(emptyList<String>(), opened)
+        composeRule.onNodeWithContentDescription("Call details").performClick()
+        assertEquals(listOf("0401234567"), opened)
     }
 
     @Test

@@ -1,10 +1,8 @@
 package org.jarsi.arkphone.ui.recents
 
-import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
-import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -50,6 +48,7 @@ class RecentsScreenTest {
         entry: CallLogEntry,
         count: Int = 1,
         simAccounts: List<SimAccount> = emptyList(),
+        onCall: (String) -> Unit = {},
         onOpenDetails: (String) -> Unit = {},
         onOpenNameDetails: (String) -> Unit = {},
         onWhatsAppCall: (CallLogEntry) -> Unit = {},
@@ -62,7 +61,7 @@ class RecentsScreenTest {
                     entries = listOf(GroupedCallLogEntry(entry, count)),
                     simAccounts = simAccounts,
                 ),
-                onCall = {},
+                onCall = onCall,
                 onRequestPermissions = {},
                 onOpenDetails = onOpenDetails,
                 onOpenNameDetails = onOpenNameDetails,
@@ -93,7 +92,7 @@ class RecentsScreenTest {
     }
 
     @Test
-    fun aNumberlessWhatsAppRowOpensNameDetails() {
+    fun theDetailsButtonOfANumberlessWhatsAppRowOpensNameDetails() {
         val openedNames = mutableListOf<String>()
         val openedNumbers = mutableListOf<String>()
         setContent(
@@ -101,9 +100,17 @@ class RecentsScreenTest {
             onOpenDetails = { openedNumbers += it },
             onOpenNameDetails = { openedNames += it },
         )
-        composeRule.onNodeWithText("Matti Meikäläinen").performClick()
+        composeRule.onNodeWithContentDescription("Call details").performClick()
         assertEquals(listOf("Matti Meikäläinen"), openedNames)
         assertEquals(emptyList<String>(), openedNumbers)
+    }
+
+    @Test
+    fun theDetailsButtonOpensDetailsForTheNumber() {
+        var opened: String? = null
+        setContent(entry(), onOpenDetails = { opened = it })
+        composeRule.onNodeWithContentDescription("Call details").performClick()
+        assertEquals("0401234567", opened)
     }
 
     @Test
@@ -122,29 +129,40 @@ class RecentsScreenTest {
     }
 
     @Test
-    fun whatsAppRowCallsBackThroughTheWhatsAppButton() {
+    fun tappingAWhatsAppRowCallsBackOnWhatsApp() {
         var called: CallLogEntry? = null
         val entry = entry(source = CallSource.WHATSAPP)
         setContent(entry, onWhatsAppCall = { called = it })
-        composeRule.onNodeWithContentDescription("Call on WhatsApp").performClick()
+        composeRule.onNodeWithText("Matti Meikäläinen").performClick()
         assertEquals(entry, called)
     }
 
     @Test
-    fun phoneRowKeepsThePlainCallButton() {
-        setContent(entry(source = CallSource.PHONE))
-        composeRule.onNodeWithContentDescription("Call").performClick()
-        composeRule.onAllNodesWithContentDescription("Call on WhatsApp").assertCountEquals(0)
+    fun tappingAPhoneRowCallsTheNumber() {
+        var dialed: String? = null
+        var whatsApp: CallLogEntry? = null
+        setContent(
+            entry(source = CallSource.PHONE),
+            onCall = { dialed = it },
+            onWhatsAppCall = { whatsApp = it },
+        )
+        composeRule.onNodeWithText("Matti Meikäläinen").performClick()
+        assertEquals("0401234567", dialed)
+        assertNull(whatsApp)
     }
 
     @Test
-    fun aRowWithoutANumberDoesNotOpenDetails() {
+    fun aRowWithoutANumberDoesNotCallOrOpenDetails() {
+        var dialed: String? = null
         var opened: String? = null
         setContent(
-            entry(source = CallSource.WHATSAPP, number = ""),
+            entry(number = "", name = null),
+            onCall = { dialed = it },
             onOpenDetails = { opened = it },
         )
-        composeRule.onNodeWithText("Matti Meikäläinen").performClick()
+        composeRule.onNodeWithText("Unknown", substring = true).performClick()
+        composeRule.onNodeWithContentDescription("Call details").performClick()
+        assertNull(dialed)
         assertNull(opened)
     }
 }

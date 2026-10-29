@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -27,16 +28,22 @@ import org.jarsi.arkphone.ui.calls.CallsScreen
 import org.jarsi.arkphone.ui.components.rememberHaptics
 import org.jarsi.arkphone.ui.contacts.ContactsScreen
 import org.jarsi.arkphone.ui.messages.MessagesScreen
+import org.jarsi.arkphone.ui.settings.SettingsActivity
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationBarItem
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Contacts
 import top.yukonga.miuix.kmp.icon.extended.Messages
 import top.yukonga.miuix.kmp.icon.extended.Phone
+import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** Calls is the call history with the keypad folded into it. */
@@ -73,27 +80,72 @@ fun MainScreen(
     BackHandler(enabled = selectedTab != MainTab.CALLS) {
         selectedTab = MainTab.CALLS
     }
+    val context = LocalContext.current
+    val haptics = rememberHaptics()
+    // The Calls tab has a large title that collapses as its list scrolls.
+    val scrollBehavior = MiuixScrollBehavior()
+    // While the Calls search is active, the bars step aside for the results.
+    var callsSearchActive by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(selectedTab) {
+        if (selectedTab != MainTab.CALLS) callsSearchActive = false
+    }
     Scaffold(
+        topBar = {
+            if (selectedTab == MainTab.CALLS && !callsSearchActive) {
+                TopAppBar(
+                    title = stringResource(R.string.tab_calls),
+                    scrollBehavior = scrollBehavior,
+                    actions = {
+                        IconButton(
+                            onClick = {
+                                haptics.click()
+                                context.startActivity(SettingsActivity.intent(context))
+                            },
+                        ) {
+                            Icon(
+                                MiuixIcons.Settings,
+                                contentDescription = stringResource(R.string.settings_title),
+                                tint = MiuixTheme.colorScheme.onBackground,
+                            )
+                        }
+                    },
+                )
+            }
+        },
         bottomBar = {
-            ArkBottomBar(
-                selected = selectedTab,
-                onSelect = { selectedTab = it },
-                unreadMessages = unreadMessages,
-            )
+            if (!callsSearchActive) {
+                ArkBottomBar(
+                    selected = selectedTab,
+                    onSelect = { selectedTab = it },
+                    unreadMessages = unreadMessages,
+                )
+            }
         },
     ) { padding ->
-        Column(Modifier.padding(padding)) {
+        if (selectedTab == MainTab.CALLS) {
+            CallsScreen(
+                onCall = onCall,
+                onRequestPermissions = onRequestPermissions,
+                onVoicemail = onVoicemail,
+                initialNumber = requestedNumber,
+                onInitialNumberConsumed = onRequestedNumberConsumed,
+                contentPadding = padding,
+                scrollConnection = scrollBehavior.nestedScrollConnection,
+                searchActive = callsSearchActive,
+                onSearchActiveChange = { callsSearchActive = it },
+                banner = if (showDefaultDialerBanner) {
+                    { DefaultDialerBanner(onRequestDefaultDialer) }
+                } else {
+                    null
+                },
+            )
+        } else {
+            Column(Modifier.padding(padding)) {
             if (showDefaultDialerBanner) {
                 DefaultDialerBanner(onRequestDefaultDialer)
             }
             when (selectedTab) {
-                MainTab.CALLS -> CallsScreen(
-                    onCall = onCall,
-                    onRequestPermissions = onRequestPermissions,
-                    onVoicemail = onVoicemail,
-                    initialNumber = requestedNumber,
-                    onInitialNumberConsumed = onRequestedNumberConsumed,
-                )
+                MainTab.CALLS -> Unit
                 MainTab.MESSAGES -> MessagesScreen(
                     onOpenThread = onOpenThread,
                     onNewMessage = onNewMessage,
@@ -101,6 +153,7 @@ fun MainScreen(
                     onRequestSmsRole = onRequestSmsRole,
                 )
                 MainTab.CONTACTS -> ContactsScreen(onCall = onCall, onRequestPermissions = onRequestPermissions)
+            }
             }
         }
     }

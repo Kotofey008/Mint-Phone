@@ -163,6 +163,8 @@
     <string name="dialpad_show">Wähltasten anzeigen</string>
     <string name="dialpad_hide">Wähltasten ausblenden</string>
     <string name="calls_clear_number">Nummer löschen</string>
+    <string name="call_details">Anrufdetails</string>
+    <string name="calls_search_found">Gefunden: %1$d</string>
     <string name="dialpad_long_press_plus">Pluszeichen eingeben</string>
     <string name="incall_unknown_caller">Unbekannte Nummer</string>
     <string name="incall_state_ringing">Eingehender Anruf</string>

@@ -5,38 +5,42 @@ import android.widget.Toast
 import androidx.annotation.StringRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.data.model.CallLogEntry
 import org.jarsi.arkphone.data.model.CallSource
@@ -44,20 +48,19 @@ import org.jarsi.arkphone.data.model.CallType
 import org.jarsi.arkphone.data.model.Contact
 import org.jarsi.arkphone.data.model.SimAccount
 import org.jarsi.arkphone.data.simLabelFor
+import org.jarsi.arkphone.ui.calls.ChevronRightIcon
+import org.jarsi.arkphone.ui.calls.PersonTile
+import org.jarsi.arkphone.ui.calls.pressHighlight
 import org.jarsi.arkphone.ui.components.rememberHaptics
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Blocklist
 import top.yukonga.miuix.kmp.icon.extended.Close
-import top.yukonga.miuix.kmp.icon.extended.Contacts
-import top.yukonga.miuix.kmp.icon.extended.Phone
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -81,9 +84,12 @@ private fun filterLabelRes(filter: RecentsFilter): Int = when (filter) {
 }
 
 /**
- * The scrolling body of the Calls tab: an optional typed-number banner, the
- * favorites row, the "Recents" filter dropdown, then the call rows and any
- * matching contacts that have no calls. Everything scrolls together.
+ * The scrolling body of the Calls tab. Everything lives in one list so the
+ * large title above it can collapse with it: [topItems] (banner, search), an
+ * optional typed-number row, the favorites row, the "Recents" filter dropdown,
+ * then the call rows and any matching contacts that have no calls.
+ *
+ * In [searchMode] only the matching calls are shown, under a "Found: N" line.
  */
 @Composable
 fun RecentsContent(
@@ -99,20 +105,37 @@ fun RecentsContent(
     typedNumber: String? = null,
     onTypedClick: () -> Unit = {},
     onTypedClear: () -> Unit = {},
+    searchMode: Boolean = false,
+    modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
+    topItems: LazyListScope.() -> Unit = {},
 ) {
     val listState = rememberLazyListState()
     val newestId = uiState.entries.firstOrNull()?.entry?.id
-    val headerCount = (if (typedNumber != null) 1 else 0) + (if (favorites.isNotEmpty()) 1 else 0) + 1
     // Keyed items anchor the viewport to the previously-first row, so a freshly
-    // logged call would land hidden above it. When the list sits at the top,
+    // logged call would land hidden above it. When the list sits near the top,
     // keep it pinned to the newest call; a deeper scroll position is left alone.
     LaunchedEffect(newestId) {
-        if (listState.firstVisibleItemIndex <= headerCount) {
+        if (listState.firstVisibleItemIndex <= HEADER_SLACK) {
             listState.scrollToItem(0)
         }
     }
-    LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = contentPadding) {
+    LazyColumn(modifier.fillMaxSize(), state = listState, contentPadding = contentPadding) {
+        topItems()
+        if (searchMode) {
+            if (uiState.query.isNotBlank() && uiState.hasPermission && !uiState.loading) {
+                item(key = "found") {
+                    Text(
+                        text = stringResource(R.string.calls_search_found, uiState.entries.size),
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                    )
+                }
+                callRows(uiState, onCall, onOpenDetails, onOpenNameDetails, onWhatsAppCall)
+            }
+            return@LazyColumn
+        }
         if (typedNumber != null) {
             item(key = "typed-number") {
                 TypedNumberRow(typedNumber, onClick = onTypedClick, onClear = onTypedClear)
@@ -121,8 +144,8 @@ fun RecentsContent(
         if (favorites.isNotEmpty()) {
             item(key = "favorites") {
                 LazyRow(
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     items(favorites, key = { it.id }) { contact ->
                         FavoriteItem(contact = contact, onCall = onCall)
@@ -178,21 +201,34 @@ fun RecentsContent(
                 }
             }
             else -> {
-                items(uiState.entries, key = { it.entry.id }) { grouped ->
-                    RecentsRow(
-                        grouped = grouped,
-                        simAccounts = uiState.simAccounts,
-                        onCall = onCall,
-                        onOpenDetails = onOpenDetails,
-                        onOpenNameDetails = onOpenNameDetails,
-                        onWhatsAppCall = onWhatsAppCall,
-                    )
-                }
+                callRows(uiState, onCall, onOpenDetails, onOpenNameDetails, onWhatsAppCall)
                 items(contactRows, key = { "contact-${it.id}" }) { contact ->
                     ContactRow(contact = contact, onCall = onCall, onOpenDetails = onOpenDetails)
                 }
             }
         }
+    }
+}
+
+/** Header items (banner, search, typed number, favorites, filter) before the rows. */
+private const val HEADER_SLACK = 5
+
+private fun LazyListScope.callRows(
+    uiState: RecentsUiState,
+    onCall: (String) -> Unit,
+    onOpenDetails: (String) -> Unit,
+    onOpenNameDetails: (String) -> Unit,
+    onWhatsAppCall: (CallLogEntry) -> Unit,
+) {
+    items(uiState.entries, key = { it.entry.id }) { grouped ->
+        RecentsRow(
+            grouped = grouped,
+            simAccounts = uiState.simAccounts,
+            onCall = onCall,
+            onOpenDetails = onOpenDetails,
+            onOpenNameDetails = onOpenNameDetails,
+            onWhatsAppCall = onWhatsAppCall,
+        )
     }
 }
 
@@ -212,17 +248,15 @@ private fun RecentsFilterDropdown(
         if (showWhatsApp) add(RecentsFilter.WHATSAPP)
     }
     val labels = filters.map { stringResource(filterLabelRes(it)) }
-    Card(Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
-        OverlayDropdownPreference(
-            title = stringResource(R.string.tab_recents),
-            items = labels,
-            selectedIndex = filters.indexOf(selected).coerceAtLeast(0),
-            onSelectedIndexChange = { index ->
-                haptics.click()
-                onSelect(filters[index])
-            },
-        )
-    }
+    OverlayDropdownPreference(
+        title = stringResource(R.string.tab_recents),
+        items = labels,
+        selectedIndex = filters.indexOf(selected).coerceAtLeast(0),
+        onSelectedIndexChange = { index ->
+            haptics.click()
+            onSelect(filters[index])
+        },
+    )
 }
 
 /** Shown while a number is typed but the keypad is folded: the list is still
@@ -230,66 +264,62 @@ private fun RecentsFilterDropdown(
 @Composable
 private fun TypedNumberRow(number: String, onClick: () -> Unit, onClear: () -> Unit) {
     val haptics = rememberHaptics()
-    Card(
-        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-        showIndication = true,
+    BasicComponent(
         onClick = onClick,
+        endActions = {
+            IconButton(
+                onClick = {
+                    haptics.click()
+                    onClear()
+                },
+            ) {
+                Icon(
+                    MiuixIcons.Close,
+                    contentDescription = stringResource(R.string.calls_clear_number),
+                    tint = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+                )
+            }
+        },
     ) {
-        BasicComponent(
-            endActions = {
-                IconButton(
-                    onClick = {
-                        haptics.click()
-                        onClear()
-                    },
-                ) {
-                    Icon(
-                        MiuixIcons.Close,
-                        contentDescription = stringResource(R.string.calls_clear_number),
-                        tint = MiuixTheme.colorScheme.onSurfaceContainerVariant,
-                    )
-                }
-            },
-        ) {
-            Text(
-                text = number,
-                style = MiuixTheme.textStyles.title2,
-                color = MiuixTheme.colorScheme.onSurfaceContainer,
-                maxLines = 1,
-            )
-        }
+        Text(
+            text = number,
+            style = MiuixTheme.textStyles.title2,
+            color = MiuixTheme.colorScheme.onBackground,
+            maxLines = 1,
+        )
     }
 }
 
 @Composable
 private fun FavoriteItem(contact: Contact, onCall: (String) -> Unit) {
     val haptics = rememberHaptics()
-    Card(
-        modifier = Modifier.width(80.dp),
-        showIndication = true,
-        onClick = {
-            haptics.confirm()
-            contact.phoneNumber?.let(onCall)
-        },
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 10.dp),
-        ) {
-            CallsAvatar(contact.displayName, contact.photoUri, size = 52.dp)
-            Text(
-                text = contact.displayName,
-                style = MiuixTheme.textStyles.body2,
-                color = MiuixTheme.colorScheme.onSurfaceContainer,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 6.dp),
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .width(76.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .pressHighlight(
+                onClick = {
+                    haptics.confirm()
+                    contact.phoneNumber?.let(onCall)
+                },
             )
-        }
+            .padding(horizontal = 4.dp, vertical = 8.dp),
+    ) {
+        CallsAvatar(contact.photoUri, size = 52.dp)
+        Text(
+            text = contact.displayName,
+            style = MiuixTheme.textStyles.body2,
+            color = MiuixTheme.colorScheme.onBackground,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 6.dp),
+        )
     }
 }
 
+/** One call: tap to call back, "›" for details, long-press to copy the number. */
 @Composable
 private fun RecentsRow(
     grouped: GroupedCallLogEntry,
@@ -317,83 +347,89 @@ private fun RecentsRow(
         ?: entry.number.takeIf { it.isNotBlank() }
         ?: stringResource(R.string.call_log_unknown_caller)
     val missed = entry.type == CallType.MISSED
-    Card(
-        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-        showIndication = true,
-        onClick = {
-            when {
-                entry.number.isNotBlank() -> onOpenDetails(entry.number)
-                entry.source == CallSource.WHATSAPP && entry.displayName != null ->
-                    onOpenNameDetails(entry.displayName)
-                else -> Unit
-            }
-        },
-        onLongPress = {
-            if (entry.number.isNotBlank()) {
-                clipboard.setText(AnnotatedString(entry.number))
-                Toast.makeText(context, copiedText, Toast.LENGTH_SHORT).show()
-            }
-        },
+    val openDetails = {
+        when {
+            entry.number.isNotBlank() -> onOpenDetails(entry.number)
+            entry.source == CallSource.WHATSAPP && entry.displayName != null ->
+                onOpenNameDetails(entry.displayName)
+            else -> Unit
+        }
+    }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .pressHighlight(
+                onClick = {
+                    haptics.confirm()
+                    when {
+                        entry.source == CallSource.WHATSAPP -> onWhatsAppCall(entry)
+                        entry.number.isNotBlank() -> onCall(entry.number)
+                        else -> Unit
+                    }
+                },
+                onLongClick = {
+                    if (entry.number.isNotBlank()) {
+                        clipboard.setText(AnnotatedString(entry.number))
+                        Toast.makeText(context, copiedText, Toast.LENGTH_SHORT).show()
+                    }
+                },
+            )
+            .padding(horizontal = 24.dp, vertical = 12.dp),
     ) {
-        BasicComponent(
-            startAction = {
-                Icon(
-                    imageVector = if (entry.type == CallType.BLOCKED) MiuixIcons.Blocklist else MiuixIcons.Phone,
-                    contentDescription = typeLabel,
-                    tint = when (entry.type) {
-                        CallType.MISSED, CallType.REJECTED -> MiuixTheme.colorScheme.error
-                        CallType.OUTGOING -> MiuixTheme.colorScheme.primary
-                        else -> MiuixTheme.colorScheme.onSurfaceContainerVariant
-                    },
-                    modifier = Modifier.padding(end = 12.dp),
-                )
-            },
-            endActions = {
-                if (entry.source == CallSource.WHATSAPP) {
-                    IconButton(
-                        onClick = {
-                            haptics.confirm()
-                            onWhatsAppCall(entry)
-                        },
-                    ) {
-                        Image(
-                            painterResource(R.drawable.ic_whatsapp),
-                            contentDescription = stringResource(R.string.call_whatsapp),
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
-                } else {
-                    IconButton(
-                        onClick = {
-                            haptics.confirm()
-                            onCall(entry.number)
-                        },
-                    ) {
-                        Icon(
-                            MiuixIcons.Phone,
-                            contentDescription = stringResource(R.string.dialpad_call),
-                            tint = MiuixTheme.colorScheme.primary,
-                        )
-                    }
-                }
-            },
-        ) {
+        PersonTile(size = 40.dp)
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
             Text(
                 text = if (grouped.count > 1) "$name (${grouped.count})" else name,
-                style = MiuixTheme.textStyles.body1,
-                fontWeight = FontWeight.Medium,
-                color = MiuixTheme.colorScheme.onSurfaceContainer,
+                fontSize = 17.sp,
+                color = if (missed) MiuixTheme.colorScheme.error else MiuixTheme.colorScheme.onBackground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = typeLabel + " · " +
-                    DateUtils.getRelativeTimeSpanString(entry.timestampMillis) +
-                    sourceSuffix + wifiSuffix + arkSuffix + simSuffix,
-                style = MiuixTheme.textStyles.body2,
-                color = if (missed) MiuixTheme.colorScheme.error else MiuixTheme.colorScheme.onSurfaceContainerVariant,
+                text = DateUtils.getRelativeTimeSpanString(entry.timestampMillis).toString() +
+                    " · " + typeLabel + sourceSuffix + wifiSuffix + arkSuffix + simSuffix,
+                fontSize = 13.sp,
+                color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 2.dp),
             )
         }
+        Spacer(Modifier.width(12.dp))
+        if (entry.source == CallSource.WHATSAPP) {
+            Image(
+                painterResource(R.drawable.ic_whatsapp),
+                contentDescription = stringResource(R.string.call_whatsapp),
+                modifier = Modifier.size(20.dp),
+            )
+            Spacer(Modifier.width(10.dp))
+        }
+        DetailsButton(onClick = {
+            haptics.click()
+            openDetails()
+        })
+    }
+}
+
+/** The small round "›" at the end of a call row. */
+@Composable
+private fun DetailsButton(onClick: () -> Unit) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(30.dp)
+            .clip(CircleShape)
+            .background(MiuixTheme.colorScheme.secondaryContainer)
+            .clickable(interactionSource = null, indication = null, onClick = onClick),
+    ) {
+        Icon(
+            ChevronRightIcon,
+            contentDescription = stringResource(R.string.call_details),
+            tint = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+            modifier = Modifier.size(20.dp),
+        )
     }
 }
 
@@ -406,55 +442,50 @@ private fun ContactRow(
 ) {
     val haptics = rememberHaptics()
     val number = contact.phoneNumber
-    Card(
-        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-        showIndication = true,
-        onClick = { number?.let(onOpenDetails) },
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .pressHighlight(
+                onClick = {
+                    haptics.confirm()
+                    number?.let(onCall)
+                },
+            )
+            .padding(horizontal = 24.dp, vertical = 12.dp),
     ) {
-        BasicComponent(
-            startAction = {
-                CallsAvatar(contact.displayName, contact.photoUri, size = 40.dp, modifier = Modifier.padding(end = 12.dp))
-            },
-            endActions = {
-                if (number != null) {
-                    IconButton(
-                        onClick = {
-                            haptics.confirm()
-                            onCall(number)
-                        },
-                    ) {
-                        Icon(
-                            MiuixIcons.Phone,
-                            contentDescription = stringResource(R.string.dialpad_call),
-                            tint = MiuixTheme.colorScheme.primary,
-                        )
-                    }
-                }
-            },
-        ) {
+        CallsAvatar(contact.photoUri, size = 40.dp)
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
             Text(
                 text = contact.displayName,
-                style = MiuixTheme.textStyles.body1,
-                fontWeight = FontWeight.Medium,
-                color = MiuixTheme.colorScheme.onSurfaceContainer,
+                fontSize = 17.sp,
+                color = MiuixTheme.colorScheme.onBackground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             if (number != null) {
                 Text(
                     text = number,
-                    style = MiuixTheme.textStyles.body2,
+                    fontSize = 13.sp,
                     color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+                    modifier = Modifier.padding(top = 2.dp),
                 )
             }
+        }
+        if (number != null) {
+            Spacer(Modifier.width(12.dp))
+            DetailsButton(onClick = {
+                haptics.click()
+                onOpenDetails(number)
+            })
         }
     }
 }
 
-/** Contact photo, or the initial on a Miuix container when there is none. */
+/** Contact photo, or the HyperOS person tile when there is none. */
 @Composable
 internal fun CallsAvatar(
-    displayName: String?,
     photoUri: String?,
     size: Dp,
     modifier: Modifier = Modifier,
@@ -467,27 +498,6 @@ internal fun CallsAvatar(
             modifier = modifier.size(size).clip(CircleShape),
         )
     } else {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = modifier
-                .size(size)
-                .clip(CircleShape)
-                .background(MiuixTheme.colorScheme.tertiaryContainer),
-        ) {
-            val initial = displayName?.firstOrNull()
-            if (initial != null) {
-                Text(
-                    text = initial.uppercase(),
-                    fontSize = (size.value * 0.4f).sp,
-                    color = MiuixTheme.colorScheme.onTertiaryContainer,
-                )
-            } else {
-                Icon(
-                    MiuixIcons.Contacts,
-                    contentDescription = null,
-                    tint = MiuixTheme.colorScheme.onTertiaryContainer,
-                )
-            }
-        }
+        PersonTile(size = size, modifier = modifier)
     }
 }

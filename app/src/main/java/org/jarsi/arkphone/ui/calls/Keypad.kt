@@ -26,13 +26,14 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.ui.components.rememberHaptics
 import org.jarsi.arkphone.ui.dialpad.DialpadUiState
-import org.jarsi.arkphone.ui.theme.CallAnswerGreen
 import top.yukonga.miuix.kmp.basic.FloatingActionButton
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
@@ -70,12 +71,12 @@ internal fun FoldedCallButton(onClick: () -> Unit, modifier: Modifier = Modifier
         },
         modifier = modifier,
         shape = CircleShape,
-        containerColor = CallAnswerGreen,
+        containerColor = CallButtonGreen,
     ) {
-        Icon(
-            MiuixIcons.Phone,
-            contentDescription = stringResource(R.string.dialpad_show),
+        val description = stringResource(R.string.dialpad_show)
+        DialpadDotsIcon(
             tint = Color.White,
+            modifier = Modifier.semantics { contentDescription = description },
         )
     }
 }
@@ -132,7 +133,7 @@ internal fun KeypadPanel(
                 },
                 modifier = Modifier.align(Alignment.BottomCenter).size(KeypadCallButton),
                 shape = CircleShape,
-                containerColor = CallAnswerGreen,
+                containerColor = CallButtonGreen,
             ) {
                 Icon(
                     MiuixIcons.Phone,

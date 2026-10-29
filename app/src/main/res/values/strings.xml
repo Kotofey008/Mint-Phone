@@ -164,6 +164,8 @@
     <string name="dialpad_show">Show keypad</string>
     <string name="dialpad_hide">Hide keypad</string>
     <string name="calls_clear_number">Clear number</string>
+    <string name="call_details">Call details</string>
+    <string name="calls_search_found">Found: %1$d</string>
     <string name="dialpad_long_press_plus">Type plus sign</string>
     <string name="incall_unknown_caller">Unknown number</string>
     <string name="incall_state_ringing">Incoming call</string>

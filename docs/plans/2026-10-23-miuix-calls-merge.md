@@ -60,3 +60,18 @@ Compose BOM. If the AAR metadata check asks for a higher `compileSdk`, raise it.
 - Unchanged on purpose: the Messages and Contacts tabs, `DialpadGrid` (used by
   the in-call DTMF pad), `SearchRow`, `ContactAvatar`.
 - Old Material `DialpadScreen`/`DialpadContent` and `RecentsFilterChips` removed.
+
+## Stage 2b: matching real HyperOS / Miuix (from device screenshots)
+- Large collapsing title ("Calls") in the host `Scaffold` via Miuix `TopAppBar` +
+  `MiuixScrollBehavior`; the settings button moved into its actions. The Calls
+  list is tied to it through `nestedScroll`.
+- Rows are flat (no cards): person tile, name (red when missed), date and
+  details line, round "›" button. Tap = call back, "›" = call details,
+  long-press = copy the number. This changes the old tap behavior.
+- Search is the first list item, so it scrolls with the title. Focusing it makes
+  the search active: top and bottom bars and the keypad button hide, "Cancel"
+  appears, and the list shows only matches under "Found: N".
+- "Recents" is a flat `OverlayDropdownPreference` (no card).
+- Round green call button with the dialpad dots icon; the keypad's call button
+  uses the same green.
+- Not changed: Messages and Contacts tabs.
