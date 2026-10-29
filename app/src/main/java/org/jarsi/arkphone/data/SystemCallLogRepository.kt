@@ -15,6 +15,10 @@ import kotlinx.coroutines.flow.flowOn
 import android.telephony.PhoneNumberUtils
 import kotlinx.coroutines.withContext
 import org.jarsi.arkphone.data.model.ARK_PHONE_ACCOUNT_ID
+import android.database.Cursor
+import org.jarsi.arkphone.data.model.CallHistoryItem
+import org.jarsi.arkphone.data.model.CallHistorySummary
+import org.jarsi.arkphone.data.model.CallHistoryTarget
 import org.jarsi.arkphone.data.model.CallLogEntry
 import org.jarsi.arkphone.data.model.CallSource
 import org.jarsi.arkphone.data.model.CallType
@@ -85,37 +89,12 @@ class SystemCallLogRepository @Inject constructor(
         val resolver = context.contentResolver
         fun query(): List<CallLogEntry> {
             if (!permissionChecker.has(Manifest.permission.READ_CALL_LOG)) return emptyList()
-            val projection = arrayOf(
-                CallLog.Calls._ID,
-                CallLog.Calls.NUMBER,
-                CallLog.Calls.CACHED_NAME,
-                CallLog.Calls.TYPE,
-                CallLog.Calls.DATE,
-                CallLog.Calls.DURATION,
-                CallLog.Calls.PHONE_ACCOUNT_COMPONENT_NAME,
-                CallLog.Calls.PHONE_ACCOUNT_ID,
-                CallLog.Calls.FEATURES,
-            )
             val entries = mutableListOf<CallLogEntry>()
             resolver.query(
-                CallLog.Calls.CONTENT_URI, projection, null, null,
+                CallLog.Calls.CONTENT_URI, FULL_PROJECTION, null, null,
                 CallLog.Calls.DATE + " DESC",
             )?.use { cursor ->
-                while (cursor.moveToNext()) {
-                    entries += CallLogEntry(
-                        id = cursor.getLong(0),
-                        number = cursor.getString(1).orEmpty(),
-                        displayName = cursor.getString(2)?.takeIf { it.isNotBlank() },
-                        type = callTypeFrom(cursor.getInt(3)),
-                        timestampMillis = cursor.getLong(4),
-                        durationSeconds = cursor.getLong(5),
-                        source = callSourceFrom(cursor.getString(6)),
-                        whatsAppPackage = whatsAppPackageFrom(cursor.getString(6)),
-                        simAccountId = cursor.getString(7)?.takeIf { it.isNotBlank() },
-                        wasWifiCall = isWifiCall(cursor.getInt(8)),
-                        viaArkCall = cursor.getString(7) == ARK_PHONE_ACCOUNT_ID,
-                    )
-                }
+                while (cursor.moveToNext()) entries += cursor.toEntry()
             }
             return entries
         }
@@ -216,5 +195,132 @@ class SystemCallLogRepository @Inject constructor(
             val where = CallLog.Calls._ID + " IN (" + ids.joinToString(",") + ")"
             context.contentResolver.delete(CallLog.Calls.CONTENT_URI, where, null) >= 0
         }.getOrDefault(false)
+    }
+
+    private fun Cursor.toEntry() = CallLogEntry(
+        id = getLong(0),
+        number = getString(1).orEmpty(),
+        displayName = getString(2)?.takeIf { it.isNotBlank() },
+        type = callTypeFrom(getInt(3)),
+        timestampMillis = getLong(4),
+        durationSeconds = getLong(5),
+        source = callSourceFrom(getString(6)),
+        whatsAppPackage = whatsAppPackageFrom(getString(6)),
+        simAccountId = getString(7)?.takeIf { it.isNotBlank() },
+        wasWifiCall = isWifiCall(getInt(8)),
+        viaArkCall = getString(7) == ARK_PHONE_ACCOUNT_ID,
+    )
+
+    /**
+     * One slim pass over the log (no names, no SIM columns, no row objects):
+     * keeps only the calls with [target], so a long log neither stalls the
+     * screen nor floods memory. Most rows are rejected by their last digits
+     * before the costly platform comparison runs.
+     */
+    override suspend fun historyFor(target: CallHistoryTarget): CallHistorySummary =
+        withContext(ioDispatcher) {
+            if (!permissionChecker.has(Manifest.permission.READ_CALL_LOG)) {
+                return@withContext CallHistorySummary()
+            }
+            runCatching { querySummary(target) }.getOrDefault(CallHistorySummary())
+        }
+
+    private fun querySummary(target: CallHistoryTarget): CallHistorySummary {
+        val targetDigits = (target as? CallHistoryTarget.Number)?.number?.filter { it.isDigit() }.orEmpty()
+        val items = ArrayList<CallHistoryItem>()
+        var incoming = 0
+        var outgoing = 0
+        var missed = 0
+        var duration = 0L
+        var whatsApp = false
+        context.contentResolver.query(
+            CallLog.Calls.CONTENT_URI,
+            arrayOf(
+                CallLog.Calls._ID,
+                CallLog.Calls.NUMBER,
+                CallLog.Calls.TYPE,
+                CallLog.Calls.DATE,
+                CallLog.Calls.DURATION,
+                CallLog.Calls.CACHED_NAME,
+                CallLog.Calls.PHONE_ACCOUNT_COMPONENT_NAME,
+            ),
+            null, null,
+            CallLog.Calls.DATE + " DESC",
+        )?.use { cursor ->
+            while (cursor.moveToNext()) {
+                val number = cursor.getString(1).orEmpty()
+                val source = callSourceFrom(cursor.getString(6))
+                val matches = when (target) {
+                    is CallHistoryTarget.Number ->
+                        mayBeSameNumber(number, targetDigits) &&
+                            PhoneNumberUtils.compare(number, target.number)
+                    is CallHistoryTarget.Name ->
+                        source == CallSource.WHATSAPP && number.isBlank() &&
+                            cursor.getString(5)?.takeIf { it.isNotBlank() } == target.name
+                }
+                if (!matches) continue
+                items += CallHistoryItem(cursor.getLong(0), cursor.getLong(3))
+                when (callTypeFrom(cursor.getInt(2))) {
+                    CallType.INCOMING -> incoming++
+                    CallType.OUTGOING -> outgoing++
+                    CallType.MISSED -> missed++
+                    else -> Unit
+                }
+                duration += cursor.getLong(4)
+                if (source == CallSource.WHATSAPP) whatsApp = true
+            }
+        }
+        return CallHistorySummary(items, incoming, outgoing, missed, duration, whatsApp)
+    }
+
+    /** Cheap rejection before [PhoneNumberUtils.compare]: formats differ
+     *  (+358 40 vs 040) but the last digits of one number never do. Anything
+     *  without enough digits to judge (sender ids, short codes) goes on to the
+     *  real comparison. */
+    private fun mayBeSameNumber(rowNumber: String, targetDigits: String): Boolean {
+        if (targetDigits.length < TAIL_DIGITS) return true
+        val rowDigits = rowNumber.filter { it.isDigit() }
+        if (rowDigits.length < TAIL_DIGITS) return true
+        return rowDigits.takeLast(TAIL_DIGITS) == targetDigits.takeLast(TAIL_DIGITS)
+    }
+
+    override suspend fun entriesByIds(ids: List<Long>): List<CallLogEntry> =
+        withContext(ioDispatcher) {
+            if (ids.isEmpty() || !permissionChecker.has(Manifest.permission.READ_CALL_LOG)) {
+                return@withContext emptyList()
+            }
+            runCatching {
+                val rows = mutableListOf<CallLogEntry>()
+                // SQLite caps bound variables, so very long id lists go in chunks.
+                ids.chunked(ID_CHUNK).forEach { chunk ->
+                    context.contentResolver.query(
+                        CallLog.Calls.CONTENT_URI,
+                        FULL_PROJECTION,
+                        CallLog.Calls._ID + " IN (" + chunk.joinToString(",") { "?" } + ")",
+                        chunk.map { it.toString() }.toTypedArray(),
+                        null,
+                    )?.use { cursor ->
+                        while (cursor.moveToNext()) rows += cursor.toEntry()
+                    }
+                }
+                rows.sortedByDescending { it.timestampMillis }
+            }.getOrDefault(emptyList())
+        }
+
+    private companion object {
+        const val TAIL_DIGITS = 4
+        const val ID_CHUNK = 400
+
+        val FULL_PROJECTION = arrayOf(
+            CallLog.Calls._ID,
+            CallLog.Calls.NUMBER,
+            CallLog.Calls.CACHED_NAME,
+            CallLog.Calls.TYPE,
+            CallLog.Calls.DATE,
+            CallLog.Calls.DURATION,
+            CallLog.Calls.PHONE_ACCOUNT_COMPONENT_NAME,
+            CallLog.Calls.PHONE_ACCOUNT_ID,
+            CallLog.Calls.FEATURES,
+        )
     }
 }

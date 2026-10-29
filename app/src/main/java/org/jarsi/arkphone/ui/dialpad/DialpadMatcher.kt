@@ -78,11 +78,11 @@ object DialpadMatcher {
         return result
     }
 
-    private const val HISTORY_MIN_TYPED = 3
+    internal const val HISTORY_MIN_TYPED = 3
 
-    private fun String.dialableCharacters() = filter { it.isDigit() || it == '+' }
+    internal fun String.dialableCharacters() = filter { it.isDigit() || it == '+' }
 
-    private fun canonical(number: String, e164: (String) -> String?): String {
+    internal fun canonical(number: String, e164: (String) -> String?): String {
         val stripped = number.dialableCharacters()
         return e164(stripped) ?: stripped
     }
@@ -91,7 +91,7 @@ object DialpadMatcher {
      *  trunk-0 national form. The national form is reconstructed by guessing the
      *  country-code length and round-tripping the candidate through [e164], so
      *  no country table is needed. */
-    private fun dialForms(stripped: String, e164: (String) -> String?): Set<String> {
+    internal fun dialForms(stripped: String, e164: (String) -> String?): Set<String> {
         val forms = mutableSetOf(stripped)
         val canonical = e164(stripped) ?: return forms
         forms += canonical
@@ -146,4 +146,122 @@ object DialpadMatcher {
         if (stripped.isEmpty()) return false
         return dialForms(stripped, e164).any { it.startsWith(typed) }
     }
+
+    /** Everything about a number that matching needs, computed once. */
+    class NumberForms(val key: String, val forms: Set<String>, val stripped: String)
+
+    /** The digits a name encodes to on the keypad, one string per word. */
+    internal fun t9Words(name: String): List<String> =
+        name.split(' ').map { word -> word.mapNotNull { digitFor(it) }.joinToString("") }
+            .filter { it.isNotEmpty() }
+
+    private fun matchesT9(words: List<String>, digits: String): Boolean =
+        digits.isEmpty() || words.any { it.startsWith(digits) }
+
+    class IndexedContact(
+        val contact: Contact,
+        val t9: List<String>,
+        val number: NumberForms?,
+    )
+
+    class IndexedCall(
+        val entry: CallLogEntry,
+        val t9: List<String>,
+        val number: NumberForms?,
+    )
+
+    /** Contacts and calls, prepared so a keystroke only compares strings. */
+    class DialpadIndex(
+        val contacts: List<IndexedContact>,
+        /** Newest first. */
+        val calls: List<IndexedCall>,
+    ) {
+        val contactKeys: Set<String> = contacts.mapNotNull { it.number?.key }.toSet()
+        val callKeys: Set<String> = calls.mapNotNull { it.number?.key }.toSet()
+    }
+
+    /**
+     * Builds the index. The costly part is asking libphonenumber (through
+     * [forms]) for each number's E164 and national forms, so [forms] is
+     * expected to memoize: only numbers new since the last build cost anything.
+     */
+    fun buildIndex(
+        contacts: List<Contact>,
+        log: List<CallLogEntry>,
+        forms: (String) -> NumberForms?,
+    ): DialpadIndex = DialpadIndex(
+        contacts = contacts.map { IndexedContact(it, t9Words(it.displayName), it.phoneNumber?.let(forms)) },
+        calls = log.sortedByDescending { it.timestampMillis }.map { entry ->
+            IndexedCall(entry, entry.displayName?.let(::t9Words).orEmpty(), forms(entry.number))
+        },
+    )
+
+    fun numberForms(raw: String, e164: (String) -> String?): NumberForms? {
+        val stripped = raw.dialableCharacters()
+        if (stripped.isEmpty()) return null
+        return NumberForms(
+            key = e164(stripped) ?: stripped,
+            forms = dialForms(stripped, e164),
+            stripped = stripped,
+        )
+    }
+
+    /** What typing [query] finds. Same rules as [filter], [filterHistory] and
+     *  [matchList], over the prepared [DialpadIndex]. */
+    class Search(
+        val contacts: List<Contact>,
+        val history: List<String>,
+        val listMatch: DialpadListMatch?,
+    )
+
+    fun search(index: DialpadIndex, query: String): Search {
+        if (query.isEmpty()) return Search(emptyList(), emptyList(), null)
+        val typed = query.dialableCharacters()
+        val longEnough = typed.length >= HISTORY_MIN_TYPED
+
+        val matched = index.contacts.filter { c ->
+            matchesT9(c.t9, query) ||
+                c.contact.phoneNumber?.contains(query) == true ||
+                (longEnough && c.number?.forms?.any { it.startsWith(typed) } == true)
+        }
+        val matchedKeys = matched.mapNotNull { it.number?.key }.toSet()
+
+        val history = ArrayList<String>(HISTORY_SUGGESTIONS)
+        if (longEnough) {
+            val seen = HashSet<String>()
+            for (call in index.calls) {
+                if (history.size >= HISTORY_SUGGESTIONS) break
+                if (call.entry.type == CallType.BLOCKED) continue
+                val number = call.number ?: continue
+                if (number.key in index.contactKeys || !seen.add(number.key)) continue
+                if (number.forms.any { it.startsWith(typed) }) history += call.entry.number
+            }
+        }
+
+        val ids = HashSet<Long>()
+        for (call in index.calls) {
+            val number = call.number
+            val byName = matchesT9(call.t9, query) && call.entry.displayName != null
+            val byContact = number != null && number.key in matchedKeys
+            val byNumber = number != null && typed.isNotEmpty() && (
+                if (typed.length < HISTORY_MIN_TYPED) {
+                    number.stripped.startsWith(typed)
+                } else {
+                    number.forms.any { it.startsWith(typed) }
+                }
+                )
+            if (byName || byContact || byNumber) ids += call.entry.id
+        }
+        val withoutCalls = matched.filter { c ->
+            val number = c.number ?: return@filter false
+            number.key !in index.callKeys
+        }.map { it.contact }
+        return Search(
+            contacts = matched.map { it.contact },
+            history = history,
+            listMatch = DialpadListMatch(ids, withoutCalls),
+        )
+    }
+
+    private const val HISTORY_SUGGESTIONS = 3
 }

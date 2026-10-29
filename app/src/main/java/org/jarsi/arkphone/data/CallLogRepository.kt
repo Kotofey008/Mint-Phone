@@ -1,7 +1,12 @@
 package org.jarsi.arkphone.data
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import org.jarsi.arkphone.data.model.CallHistorySummary
+import org.jarsi.arkphone.data.model.CallHistoryTarget
 import org.jarsi.arkphone.data.model.CallLogEntry
+import org.jarsi.arkphone.data.model.belongsTo
+import org.jarsi.arkphone.data.model.summaryOf
 
 interface CallLogRepository {
     fun callLog(): Flow<List<CallLogEntry>>
@@ -31,4 +36,18 @@ interface CallLogRepository {
      * inserted yet or the update failed.
      */
     suspend fun reclassifyLatestRejectionAsBlocked(number: String, notBeforeMillis: Long): Boolean
+
+    /**
+     * Counters and ids for every call with [target], newest first, without
+     * inflating the rows. The default reads the whole log; the real
+     * repositories answer from a slim query instead.
+     */
+    suspend fun historyFor(target: CallHistoryTarget): CallHistorySummary =
+        summaryOf(callLog().first().filter { it.belongsTo(target) })
+
+    /** The full rows for ids from [historyFor], newest first. */
+    suspend fun entriesByIds(ids: List<Long>): List<CallLogEntry> {
+        val wanted = ids.toSet()
+        return callLog().first().filter { it.id in wanted }.sortedByDescending { it.timestampMillis }
+    }
 }

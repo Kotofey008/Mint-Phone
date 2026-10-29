@@ -52,6 +52,11 @@ class RecentsScreenTest {
         onOpenDetails: (String) -> Unit = {},
         onOpenNameDetails: (String) -> Unit = {},
         onWhatsAppCall: (CallLogEntry) -> Unit = {},
+        selectionMode: Boolean = false,
+        selectedIds: Set<Long> = emptySet(),
+        onToggleSelect: (Long) -> Unit = {},
+        onStartSelection: (Long) -> Unit = {},
+        onEditBeforeCall: (String) -> Unit = {},
     ) {
         composeRule.setContent {
             MiuixTestHost {
@@ -66,6 +71,11 @@ class RecentsScreenTest {
                 onOpenDetails = onOpenDetails,
                 onOpenNameDetails = onOpenNameDetails,
                 onWhatsAppCall = onWhatsAppCall,
+                selectionMode = selectionMode,
+                selectedIds = selectedIds,
+                onToggleSelect = onToggleSelect,
+                onStartSelection = onStartSelection,
+                onEditBeforeCall = onEditBeforeCall,
             )
             }
         }
@@ -114,12 +124,57 @@ class RecentsScreenTest {
     }
 
     @Test
-    fun longPressOnARowCopiesTheNumber() {
+    fun longPressOpensAMenuInsteadOfCopyingRightAway() {
         setContent(entry())
         composeRule.onNodeWithText("Matti Meikäläinen").performTouchInput { longClick() }
+        composeRule.onNodeWithText("Select").assertIsDisplayed()
+        composeRule.onNodeWithText("Copy number").assertIsDisplayed()
+        composeRule.onNodeWithText("Edit number before call").assertIsDisplayed()
+    }
+
+    @Test
+    fun theMenuCopiesTheNumber() {
+        setContent(entry())
+        composeRule.onNodeWithText("Matti Meikäläinen").performTouchInput { longClick() }
+        composeRule.onNodeWithText("Copy number").performClick()
         val clipboard = ApplicationProvider.getApplicationContext<android.app.Application>()
             .getSystemService(android.content.ClipboardManager::class.java)
         assertEquals("0401234567", clipboard.primaryClip?.getItemAt(0)?.text?.toString())
+    }
+
+    @Test
+    fun theMenuStartsSelectionOnThatRow() {
+        var started: Long? = null
+        val entry = entry()
+        setContent(entry, onStartSelection = { started = it })
+        composeRule.onNodeWithText("Matti Meikäläinen").performTouchInput { longClick() }
+        composeRule.onNodeWithText("Select").performClick()
+        assertEquals(entry.id, started)
+    }
+
+    @Test
+    fun theMenuCanEditTheNumberBeforeCalling() {
+        var edited: String? = null
+        setContent(entry(), onEditBeforeCall = { edited = it })
+        composeRule.onNodeWithText("Matti Meikäläinen").performTouchInput { longClick() }
+        composeRule.onNodeWithText("Edit number before call").performClick()
+        assertEquals("0401234567", edited)
+    }
+
+    @Test
+    fun inSelectionModeATapTogglesInsteadOfCalling() {
+        var dialed: String? = null
+        var toggled: Long? = null
+        val entry = entry()
+        setContent(
+            entry,
+            onCall = { dialed = it },
+            selectionMode = true,
+            onToggleSelect = { toggled = it },
+        )
+        composeRule.onNodeWithText("Matti Meikäläinen").performClick()
+        assertEquals(entry.id, toggled)
+        assertNull(dialed)
     }
 
     @Test

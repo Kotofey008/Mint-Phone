@@ -203,4 +203,54 @@ class DialpadMatcherTest {
         val match = DialpadMatcher.matchList(entries, emptyList(), "*#", ::fakeE164)
         assertTrue(match.callIds.isEmpty())
     }
+
+    private fun index(
+        contacts: List<Contact> = emptyList(),
+        log: List<CallLogEntry> = emptyList(),
+    ) = DialpadMatcher.buildIndex(contacts, log) { raw -> DialpadMatcher.numberForms(raw, ::fakeE164) }
+
+    @Test
+    fun indexedSearchFindsTheSameContactsAsTheDirectFilter() {
+        val contacts = listOf(
+            contact(1, "Alice", "0401111111"),
+            contact(2, "Bob", "0502222222"),
+            contact(3, "Carol", "+358403333333"),
+        )
+        for (typed in listOf("25423", "040", "+358403", "0502", "9")) {
+            val direct = DialpadMatcher.filter(contacts, typed, ::fakeE164)
+            val indexed = DialpadMatcher.search(index(contacts), typed).contacts
+            assertEquals("typed $typed", direct, indexed)
+        }
+    }
+
+    @Test
+    fun indexedSearchFindsTheSameHistoryAsTheDirectFilter() {
+        val log = listOf(
+            entry(1, "0401234567"),
+            entry(2, "0401234999"),
+            entry(3, "0507654321"),
+        )
+        val direct = DialpadMatcher.filterHistory(log, emptyList(), "040", ::fakeE164).take(3)
+        val indexed = DialpadMatcher.search(index(log = log), "040").history
+        assertEquals(direct, indexed)
+    }
+
+    @Test
+    fun indexedSearchBuildsTheSameListMatchAsMatchList() {
+        val neverCalled = contact(1, "Carol", "0401111111")
+        val called = contact(2, "Dave", "0402222222")
+        val log = listOf(entry(1, "0402222222"), entry(2, "0509999999"))
+        val matchedContacts = DialpadMatcher.filter(listOf(neverCalled, called), "040", ::fakeE164)
+        val direct = DialpadMatcher.matchList(log, matchedContacts, "040", ::fakeE164)
+        val indexed = DialpadMatcher.search(index(listOf(neverCalled, called), log), "040").listMatch
+        assertEquals(direct, indexed)
+    }
+
+    @Test
+    fun nothingTypedMatchesNothing() {
+        val found = DialpadMatcher.search(index(listOf(contact(1, "Alice", "0401111111"))), "")
+        assertTrue(found.contacts.isEmpty())
+        assertTrue(found.history.isEmpty())
+        assertEquals(null, found.listMatch)
+    }
 }

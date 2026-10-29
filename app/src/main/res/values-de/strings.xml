@@ -165,6 +165,13 @@
     <string name="calls_clear_number">Nummer löschen</string>
     <string name="call_details">Anrufdetails</string>
     <string name="calls_search_found">Gefunden: %1$d</string>
+    <string name="calls_select">Auswählen</string>
+    <string name="calls_selected_count">Ausgewählt: %1$d</string>
+    <string name="calls_select_all">Alle auswählen</string>
+    <string name="calls_deselect_all">Alle abwählen</string>
+    <string name="calls_copy_numbers">Nummern kopieren</string>
+    <string name="calls_numbers_copied">Nummern kopiert</string>
+    <string name="calls_delete_selected_text">Alle Anrufe mit den ausgewählten Nummern werden aus der Anrufliste entfernt.</string>
     <string name="dialpad_long_press_plus">Pluszeichen eingeben</string>
     <string name="incall_unknown_caller">Unbekannte Nummer</string>
     <string name="incall_state_ringing">Eingehender Anruf</string>
@@ -233,6 +240,7 @@
     <string name="detail_stat_talk_time">Gesprächszeit</string>
     <string name="detail_stat_latest">Letzter Anruf</string>
     <string name="detail_history_title">Verlauf</string>
+    <string name="detail_show_more">Mehr anzeigen (%1$d)</string>
     <string name="detail_copy_number">Nummer kopieren</string>
     <string name="detail_edit_before_call">Nummer vor dem Anruf bearbeiten</string>
     <string name="detail_block">Nummer blockieren</string>

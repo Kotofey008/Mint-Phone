@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -21,6 +22,7 @@ import org.jarsi.arkphone.data.ContactsRepository
 import org.jarsi.arkphone.data.SpeedDialRepository
 import org.jarsi.arkphone.data.model.Contact
 import org.jarsi.arkphone.util.DialingRegion
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 
 data class DialpadUiState(
@@ -64,33 +66,47 @@ class DialpadViewModel @Inject constructor(
         val listMatch: DialpadListMatch? = null,
     )
 
-    /** Matching times libphonenumber over the whole call log, so it runs off
-     *  the main thread; mapLatest drops a computation the next keystroke has
-     *  already outdated. */
+    /** E164 and national forms of a number, remembered across index rebuilds
+     *  so only numbers that are new since the last build reach libphonenumber. */
+    private val formsCache = ConcurrentHashMap<String, DialpadMatcher.NumberForms>()
+
+    /** The slow part, done once per change of contacts or call log instead of
+     *  once per keystroke: libphonenumber over every number, T9 encoding of
+     *  every name. Off the main thread; a newer change replaces a running build. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val index: Flow<DialpadMatcher.DialpadIndex> =
+        combine(contactsRepository.contacts(), callLog) { contacts, log -> contacts to log }
+            .mapLatest { (contacts, log) ->
+                val country = dialingRegion.countryIso()
+                val e164 = { candidate: String -> PhoneNumberUtils.formatNumberToE164(candidate, country) }
+                DialpadMatcher.buildIndex(contacts, log) { raw ->
+                    val stripped = raw.filter { it.isDigit() || it == '+' }
+                    if (stripped.isEmpty()) {
+                        null
+                    } else {
+                        formsCache.getOrPut("$country:$stripped") {
+                            DialpadMatcher.numberForms(raw, e164)!!
+                        }
+                    }
+                }
+            }
+            .flowOn(matchDispatcher)
+
+    /** A keystroke now only compares strings against the prepared index, so
+     *  suggestions follow the typing without lag; mapLatest still drops a
+     *  search the next keystroke has already outdated. */
     @OptIn(ExperimentalCoroutinesApi::class)
     private val suggestions =
-        combine(
-            contactsRepository.contacts(),
-            number,
-            callLog,
-        ) { contacts, typed, log ->
-            Triple(contacts, typed, log)
-        }.mapLatest { (contacts, typed, log) ->
-            val country = dialingRegion.countryIso()
-            val e164 = { candidate: String ->
-                PhoneNumberUtils.formatNumberToE164(candidate, country)
-            }
-            val matchedContacts = DialpadMatcher.filter(contacts, typed, e164)
-            Suggestions(
-                listMatch = typed.takeIf { it.isNotEmpty() }
-                    ?.let { DialpadMatcher.matchList(log, matchedContacts, it, e164) },
-                contacts = matchedContacts.take(3),
-                history = DialpadMatcher
-                    .filterHistory(log, contacts, typed, e164)
-                    .take(3)
-                    .map { HistorySuggestion(it, formatDialpadNumber(it, country)) },
-            )
-        }.flowOn(matchDispatcher)
+        combine(index, number) { prepared, typed -> prepared to typed }
+            .mapLatest { (prepared, typed) ->
+                val found = DialpadMatcher.search(prepared, typed)
+                val country = dialingRegion.countryIso()
+                Suggestions(
+                    contacts = found.contacts.take(3),
+                    history = found.history.map { HistorySuggestion(it, formatDialpadNumber(it, country)) },
+                    listMatch = found.listMatch,
+                )
+            }.flowOn(matchDispatcher)
             // The typed number must echo before the call-log query answers:
             // returning to the dialpad restarts the upstream flows, and a
             // combine without this seed swallows the first keystrokes.

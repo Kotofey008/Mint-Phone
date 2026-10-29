@@ -1,6 +1,21 @@
 package org.jarsi.arkphone.ui.calls
 
 import androidx.activity.compose.BackHandler
+import android.Manifest
+import android.content.pm.PackageManager
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
+import androidx.core.content.ContextCompat
+import org.jarsi.arkphone.ui.components.MiuixConfirmDialog
+import top.yukonga.miuix.kmp.basic.TextButton
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -82,6 +97,8 @@ fun CallsScreen(
     scrollConnection: NestedScrollConnection? = null,
     searchActive: Boolean = false,
     onSearchActiveChange: (Boolean) -> Unit = {},
+    selectionActive: Boolean = false,
+    onSelectionActiveChange: (Boolean) -> Unit = {},
     banner: (@Composable () -> Unit)? = null,
     recentsViewModel: RecentsViewModel = hiltViewModel(),
     // Own instance: sharing the contacts tab's ViewModel would filter the
@@ -121,6 +138,54 @@ fun CallsScreen(
         onSave = dialpadViewModel::saveSpeedDial,
     )
     val context = LocalContext.current
+
+    // Picking several calls: copy their numbers, or delete their history.
+    var selectedIds by remember { mutableStateOf(emptySet<Long>()) }
+    LaunchedEffect(selectionActive) { if (!selectionActive) selectedIds = emptySet() }
+    BackHandler(enabled = selectionActive) { onSelectionActiveChange(false) }
+    val clipboard = LocalClipboardManager.current
+    val numbersCopied = stringResource(R.string.calls_numbers_copied)
+    val selectedNumbers = {
+        recentsUiState.entries
+            .filter { it.entry.id in selectedIds }
+            .map { it.entry.number }
+            .filter { it.isNotBlank() }
+            .distinct()
+    }
+    var confirmDelete by remember { mutableStateOf(false) }
+    var pendingDelete by remember { mutableStateOf(emptyList<String>()) }
+    val writeCallLog = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            recentsViewModel.deleteHistoryFor(pendingDelete)
+            onSelectionActiveChange(false)
+        }
+        pendingDelete = emptyList()
+    }
+    if (confirmDelete) {
+        MiuixConfirmDialog(
+            title = stringResource(R.string.detail_delete_confirm_title),
+            text = stringResource(R.string.calls_delete_selected_text),
+            confirmText = stringResource(R.string.common_delete),
+            dismissText = stringResource(R.string.common_cancel),
+            onConfirm = {
+                confirmDelete = false
+                val numbers = selectedNumbers()
+                val allowed = ContextCompat.checkSelfPermission(
+                    context, Manifest.permission.WRITE_CALL_LOG,
+                ) == PackageManager.PERMISSION_GRANTED
+                if (allowed) {
+                    recentsViewModel.deleteHistoryFor(numbers)
+                    onSelectionActiveChange(false)
+                } else {
+                    pendingDelete = numbers
+                    writeCallLog.launch(Manifest.permission.WRITE_CALL_LOG)
+                }
+            },
+            onDismiss = { confirmDelete = false },
+        )
+    }
     CallsContent(
         favorites = contactsUiState.favorites,
         recentsUiState = recentsUiState,
@@ -145,6 +210,31 @@ fun CallsScreen(
         scrollConnection = scrollConnection,
         searchActive = searchActive,
         onSearchActiveChange = onSearchActiveChange,
+        selectionActive = selectionActive,
+        selectedIds = selectedIds,
+        onToggleSelect = { id ->
+            selectedIds = if (id in selectedIds) selectedIds - id else selectedIds + id
+        },
+        onStartSelection = { id ->
+            selectedIds = setOf(id)
+            onSelectionActiveChange(true)
+        },
+        onSelectAll = { selectedIds = recentsUiState.entries.map { it.entry.id }.toSet() },
+        onDeselectAll = { selectedIds = emptySet() },
+        onCancelSelection = { onSelectionActiveChange(false) },
+        onCopySelected = {
+            val numbers = selectedNumbers()
+            if (numbers.isNotEmpty()) {
+                clipboard.setText(AnnotatedString(numbers.joinToString("\n")))
+                Toast.makeText(context, numbersCopied, Toast.LENGTH_SHORT).show()
+            }
+            onSelectionActiveChange(false)
+        },
+        onDeleteSelected = { if (selectedIds.isNotEmpty()) confirmDelete = true },
+        onEditBeforeCall = { number ->
+            dialpadViewModel.setNumber(number)
+            keypadExpanded = true
+        },
         banner = banner,
     )
 }
@@ -174,6 +264,16 @@ fun CallsContent(
     scrollConnection: NestedScrollConnection? = null,
     searchActive: Boolean = false,
     onSearchActiveChange: (Boolean) -> Unit = {},
+    selectionActive: Boolean = false,
+    selectedIds: Set<Long> = emptySet(),
+    onToggleSelect: (Long) -> Unit = {},
+    onStartSelection: (Long) -> Unit = {},
+    onSelectAll: () -> Unit = {},
+    onDeselectAll: () -> Unit = {},
+    onCancelSelection: () -> Unit = {},
+    onCopySelected: () -> Unit = {},
+    onDeleteSelected: () -> Unit = {},
+    onEditBeforeCall: (String) -> Unit = {},
     banner: (@Composable () -> Unit)? = null,
 ) {
     val expanded by rememberUpdatedState(keypadExpanded)
@@ -237,11 +337,20 @@ fun CallsContent(
                 onTypedClick = { onKeypadExpandedChange(true) },
                 onTypedClear = onClear,
                 searchMode = searchActive,
+                selectionMode = selectionActive,
+                selectedIds = selectedIds,
+                onToggleSelect = onToggleSelect,
+                onStartSelection = onStartSelection,
+                onEditBeforeCall = onEditBeforeCall,
                 modifier = if (scrollConnection != null) Modifier.nestedScroll(scrollConnection) else Modifier,
                 contentPadding = PaddingValues(
-                    top = contentPadding.calculateTopPadding(),
-                    bottom = bottomInset +
-                        if (keypadExpanded || searchActive) 0.dp else FoldedKeypadClearance,
+                    top = contentPadding.calculateTopPadding() +
+                        if (selectionActive) SelectionBarHeight else 0.dp,
+                    bottom = bottomInset + when {
+                        selectionActive -> SelectionBarHeight
+                        keypadExpanded || searchActive -> 0.dp
+                        else -> FoldedKeypadClearance
+                    },
                 ),
                 topItems = {
                     if (banner != null) {
@@ -261,7 +370,7 @@ fun CallsContent(
         // Overlay layer: stays above the host's bottom bar.
         Box(Modifier.fillMaxSize().padding(bottom = bottomInset)) {
             AnimatedVisibility(
-                visible = !keypadExpanded && !searchActive,
+                visible = !keypadExpanded && !searchActive && !selectionActive,
                 enter = scaleIn() + fadeIn(),
                 exit = scaleOut() + fadeOut(),
                 modifier = Modifier.align(Alignment.BottomEnd).padding(KeypadEdgePadding),
@@ -269,7 +378,7 @@ fun CallsContent(
                 FoldedCallButton(onClick = { onKeypadExpandedChange(true) })
             }
             AnimatedVisibility(
-                visible = keypadExpanded && !searchActive,
+                visible = keypadExpanded && !searchActive && !selectionActive,
                 enter = slideInVertically { it } + fadeIn(),
                 exit = slideOutVertically { it } + fadeOut(),
                 modifier = Modifier.align(Alignment.BottomCenter),
@@ -288,6 +397,81 @@ fun CallsContent(
                 )
             }
         }
+        if (selectionActive) {
+            val allSelected = recentsUiState.entries.isNotEmpty() &&
+                recentsUiState.entries.all { it.entry.id in selectedIds }
+            SelectionTopBar(
+                count = selectedIds.size,
+                allSelected = allSelected,
+                onCancel = onCancelSelection,
+                onToggleAll = if (allSelected) onDeselectAll else onSelectAll,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = contentPadding.calculateTopPadding()),
+            )
+            SelectionBottomBar(
+                onCopy = onCopySelected,
+                onDelete = onDeleteSelected,
+                modifier = Modifier.align(Alignment.BottomCenter),
+                bottomInset = bottomInset,
+            )
+        }
+    }
+}
+
+/** Height of the selection bars; the list leaves room for them. */
+private val SelectionBarHeight = 56.dp
+
+@Composable
+private fun SelectionTopBar(
+    count: Int,
+    allSelected: Boolean,
+    onCancel: () -> Unit,
+    onToggleAll: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(SelectionBarHeight)
+            .background(MiuixTheme.colorScheme.background)
+            .padding(horizontal = 8.dp),
+    ) {
+        TextButton(text = stringResource(R.string.common_cancel), onClick = onCancel)
+        Text(
+            text = stringResource(R.string.calls_selected_count, count),
+            style = MiuixTheme.textStyles.title2,
+            color = MiuixTheme.colorScheme.onBackground,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            modifier = Modifier.weight(1f),
+        )
+        TextButton(
+            text = stringResource(if (allSelected) R.string.calls_deselect_all else R.string.calls_select_all),
+            onClick = onToggleAll,
+        )
+    }
+}
+
+@Composable
+private fun SelectionBottomBar(
+    onCopy: () -> Unit,
+    onDelete: () -> Unit,
+    bottomInset: Dp,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .fillMaxWidth()
+            .background(MiuixTheme.colorScheme.surfaceContainer)
+            .padding(bottom = bottomInset)
+            .height(SelectionBarHeight),
+    ) {
+        TextButton(text = stringResource(R.string.calls_copy_numbers), onClick = onCopy)
+        TextButton(text = stringResource(R.string.common_delete), onClick = onDelete)
     }
 }
 

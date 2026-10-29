@@ -159,5 +159,13 @@ class RecentsViewModel @Inject constructor(
         )
     }
 
+    /** Removes every call with each of [numbers] from the log. Needs
+     *  WRITE_CALL_LOG, which the caller asks for before getting here. */
+    fun deleteHistoryFor(numbers: Collection<String>) {
+        viewModelScope.launch {
+            numbers.distinct().forEach { repository.deleteCallsFor(it) }
+        }
+    }
+
     private fun hasCallLogPermission() = permissionChecker.has(Manifest.permission.READ_CALL_LOG)
 }

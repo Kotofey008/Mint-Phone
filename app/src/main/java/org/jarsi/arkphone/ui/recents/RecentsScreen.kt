@@ -3,6 +3,7 @@ package org.jarsi.arkphone.ui.recents
 import android.text.format.DateUtils
 import android.widget.Toast
 import androidx.annotation.StringRes
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -26,9 +27,19 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -51,6 +62,8 @@ import org.jarsi.arkphone.data.simLabelFor
 import org.jarsi.arkphone.ui.calls.ChevronRightIcon
 import org.jarsi.arkphone.ui.calls.PersonTile
 import org.jarsi.arkphone.ui.calls.pressHighlight
+import org.jarsi.arkphone.ui.components.MenuEntry
+import org.jarsi.arkphone.ui.components.MiuixPopupMenu
 import org.jarsi.arkphone.ui.components.rememberHaptics
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Button
@@ -106,6 +119,11 @@ fun RecentsContent(
     onTypedClick: () -> Unit = {},
     onTypedClear: () -> Unit = {},
     searchMode: Boolean = false,
+    selectionMode: Boolean = false,
+    selectedIds: Set<Long> = emptySet(),
+    onToggleSelect: (Long) -> Unit = {},
+    onStartSelection: (Long) -> Unit = {},
+    onEditBeforeCall: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     topItems: LazyListScope.() -> Unit = {},
@@ -121,6 +139,14 @@ fun RecentsContent(
         }
     }
     LazyColumn(modifier.fillMaxSize(), state = listState, contentPadding = contentPadding) {
+        if (selectionMode) {
+            // Picking calls: just the rows, nothing to distract from the choice.
+            callRows(
+                uiState, onCall, onOpenDetails, onOpenNameDetails, onWhatsAppCall,
+                selectionMode, selectedIds, onToggleSelect, onStartSelection, onEditBeforeCall,
+            )
+            return@LazyColumn
+        }
         topItems()
         if (searchMode) {
             if (uiState.query.isNotBlank() && uiState.hasPermission && !uiState.loading) {
@@ -132,7 +158,10 @@ fun RecentsContent(
                         modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
                     )
                 }
-                callRows(uiState, onCall, onOpenDetails, onOpenNameDetails, onWhatsAppCall)
+                callRows(
+                    uiState, onCall, onOpenDetails, onOpenNameDetails, onWhatsAppCall,
+                    selectionMode, selectedIds, onToggleSelect, onStartSelection, onEditBeforeCall,
+                )
             }
             return@LazyColumn
         }
@@ -201,7 +230,10 @@ fun RecentsContent(
                 }
             }
             else -> {
-                callRows(uiState, onCall, onOpenDetails, onOpenNameDetails, onWhatsAppCall)
+                callRows(
+                    uiState, onCall, onOpenDetails, onOpenNameDetails, onWhatsAppCall,
+                    selectionMode, selectedIds, onToggleSelect, onStartSelection, onEditBeforeCall,
+                )
                 items(contactRows, key = { "contact-${it.id}" }) { contact ->
                     ContactRow(contact = contact, onCall = onCall, onOpenDetails = onOpenDetails)
                 }
@@ -219,6 +251,11 @@ private fun LazyListScope.callRows(
     onOpenDetails: (String) -> Unit,
     onOpenNameDetails: (String) -> Unit,
     onWhatsAppCall: (CallLogEntry) -> Unit,
+    selectionMode: Boolean,
+    selectedIds: Set<Long>,
+    onToggleSelect: (Long) -> Unit,
+    onStartSelection: (Long) -> Unit,
+    onEditBeforeCall: (String) -> Unit,
 ) {
     items(uiState.entries, key = { it.entry.id }) { grouped ->
         RecentsRow(
@@ -228,6 +265,11 @@ private fun LazyListScope.callRows(
             onOpenDetails = onOpenDetails,
             onOpenNameDetails = onOpenNameDetails,
             onWhatsAppCall = onWhatsAppCall,
+            selectionMode = selectionMode,
+            selected = grouped.entry.id in selectedIds,
+            onToggleSelect = { onToggleSelect(grouped.entry.id) },
+            onStartSelection = { onStartSelection(grouped.entry.id) },
+            onEditBeforeCall = onEditBeforeCall,
         )
     }
 }
@@ -319,7 +361,7 @@ private fun FavoriteItem(contact: Contact, onCall: (String) -> Unit) {
     }
 }
 
-/** One call: tap to call back, "›" for details, long-press to copy the number. */
+/** One call: tap to call back, "›" for details, long-press for the menu (select, copy, edit). */
 @Composable
 private fun RecentsRow(
     grouped: GroupedCallLogEntry,
@@ -328,9 +370,15 @@ private fun RecentsRow(
     onOpenDetails: (String) -> Unit,
     onOpenNameDetails: (String) -> Unit,
     onWhatsAppCall: (CallLogEntry) -> Unit,
+    selectionMode: Boolean,
+    selected: Boolean,
+    onToggleSelect: () -> Unit,
+    onStartSelection: () -> Unit,
+    onEditBeforeCall: (String) -> Unit,
 ) {
     val entry = grouped.entry
     val haptics = rememberHaptics()
+    var menuOpen by remember { mutableStateOf(false) }
     val typeLabel = stringResource(callTypeLabelRes(entry.type))
     val sourceSuffix = if (entry.source == CallSource.WHATSAPP) {
         " · " + stringResource(R.string.call_source_whatsapp)
@@ -355,23 +403,45 @@ private fun RecentsRow(
             else -> Unit
         }
     }
+    val menuEntries = buildList {
+        add(MenuEntry(stringResource(R.string.calls_select)) {
+            menuOpen = false
+            onStartSelection()
+        })
+        if (entry.number.isNotBlank()) {
+            add(MenuEntry(stringResource(R.string.detail_copy_number)) {
+                menuOpen = false
+                clipboard.setText(AnnotatedString(entry.number))
+                Toast.makeText(context, copiedText, Toast.LENGTH_SHORT).show()
+            })
+            add(MenuEntry(stringResource(R.string.detail_edit_before_call)) {
+                menuOpen = false
+                onEditBeforeCall(entry.number)
+            })
+        }
+    }
+    Box {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
+            .background(
+                if (selected) MiuixTheme.colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent,
+            )
             .pressHighlight(
                 onClick = {
                     haptics.confirm()
                     when {
+                        selectionMode -> onToggleSelect()
                         entry.source == CallSource.WHATSAPP -> onWhatsAppCall(entry)
                         entry.number.isNotBlank() -> onCall(entry.number)
                         else -> Unit
                     }
                 },
                 onLongClick = {
-                    if (entry.number.isNotBlank()) {
-                        clipboard.setText(AnnotatedString(entry.number))
-                        Toast.makeText(context, copiedText, Toast.LENGTH_SHORT).show()
+                    if (!selectionMode) {
+                        haptics.longPress()
+                        menuOpen = true
                     }
                 },
             )
@@ -398,18 +468,54 @@ private fun RecentsRow(
             )
         }
         Spacer(Modifier.width(12.dp))
-        if (entry.source == CallSource.WHATSAPP) {
-            Image(
-                painterResource(R.drawable.ic_whatsapp),
-                contentDescription = stringResource(R.string.call_whatsapp),
-                modifier = Modifier.size(20.dp),
-            )
-            Spacer(Modifier.width(10.dp))
+        if (selectionMode) {
+            SelectionCheck(selected)
+        } else {
+            if (entry.source == CallSource.WHATSAPP) {
+                Image(
+                    painterResource(R.drawable.ic_whatsapp),
+                    contentDescription = stringResource(R.string.call_whatsapp),
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(Modifier.width(10.dp))
+            }
+            DetailsButton(onClick = {
+                haptics.click()
+                openDetails()
+            })
         }
-        DetailsButton(onClick = {
-            haptics.click()
-            openDetails()
-        })
+    }
+    MiuixPopupMenu(
+        expanded = menuOpen,
+        onDismissRequest = { menuOpen = false },
+        entries = menuEntries,
+        alignment = Alignment.BottomStart,
+        offset = IntOffset(x = 120, y = 0),
+    )
+    }
+}
+
+/** The round check at the end of a row while picking calls. */
+@Composable
+private fun SelectionCheck(selected: Boolean) {
+    val accent = MiuixTheme.colorScheme.primary
+    val outline = MiuixTheme.colorScheme.onSurfaceContainerVariant
+    Canvas(Modifier.size(24.dp)) {
+        if (selected) {
+            drawCircle(accent)
+            val check = Path().apply {
+                moveTo(size.width * 0.27f, size.height * 0.52f)
+                lineTo(size.width * 0.44f, size.height * 0.68f)
+                lineTo(size.width * 0.74f, size.height * 0.34f)
+            }
+            drawPath(
+                check,
+                Color.White,
+                style = Stroke(width = size.width * 0.1f, cap = StrokeCap.Round, join = StrokeJoin.Round),
+            )
+        } else {
+            drawCircle(outline, style = Stroke(width = size.width * 0.07f))
+        }
     }
 }
 

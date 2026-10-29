@@ -86,12 +86,18 @@ fun MainScreen(
     val scrollBehavior = MiuixScrollBehavior()
     // While the Calls search is active, the bars step aside for the results.
     var callsSearchActive by rememberSaveable { mutableStateOf(false) }
+    // The same while several calls are being picked.
+    var callsSelectionActive by rememberSaveable { mutableStateOf(false) }
+    val callsFullScreen = callsSearchActive || callsSelectionActive
     LaunchedEffect(selectedTab) {
-        if (selectedTab != MainTab.CALLS) callsSearchActive = false
+        if (selectedTab != MainTab.CALLS) {
+            callsSearchActive = false
+            callsSelectionActive = false
+        }
     }
     Scaffold(
         topBar = {
-            if (selectedTab == MainTab.CALLS && !callsSearchActive) {
+            if (selectedTab == MainTab.CALLS && !callsFullScreen) {
                 TopAppBar(
                     title = stringResource(R.string.tab_calls),
                     scrollBehavior = scrollBehavior,
@@ -113,7 +119,7 @@ fun MainScreen(
             }
         },
         bottomBar = {
-            if (!callsSearchActive) {
+            if (!callsFullScreen) {
                 ArkBottomBar(
                     selected = selectedTab,
                     onSelect = { selectedTab = it },
@@ -133,6 +139,8 @@ fun MainScreen(
                 scrollConnection = scrollBehavior.nestedScrollConnection,
                 searchActive = callsSearchActive,
                 onSearchActiveChange = { callsSearchActive = it },
+                selectionActive = callsSelectionActive,
+                onSelectionActiveChange = { callsSelectionActive = it },
                 banner = if (showDefaultDialerBanner) {
                     { DefaultDialerBanner(onRequestDefaultDialer) }
                 } else {

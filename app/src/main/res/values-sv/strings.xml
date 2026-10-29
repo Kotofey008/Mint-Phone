@@ -165,6 +165,13 @@
     <string name="calls_clear_number">Rensa numret</string>
     <string name="call_details">Samtalsinformation</string>
     <string name="calls_search_found">Hittade: %1$d</string>
+    <string name="calls_select">Markera</string>
+    <string name="calls_selected_count">Markerade: %1$d</string>
+    <string name="calls_select_all">Markera alla</string>
+    <string name="calls_deselect_all">Avmarkera alla</string>
+    <string name="calls_copy_numbers">Kopiera numren</string>
+    <string name="calls_numbers_copied">Numren kopierades</string>
+    <string name="calls_delete_selected_text">Alla samtal med de markerade numren tas bort från samtalsloggen.</string>
     <string name="dialpad_long_press_plus">Skriv plustecken</string>
     <string name="incall_unknown_caller">Okänt nummer</string>
     <string name="incall_state_ringing">Inkommande samtal</string>
@@ -233,6 +240,7 @@
     <string name="detail_stat_talk_time">Samtalstid</string>
     <string name="detail_stat_latest">Senaste samtal</string>
     <string name="detail_history_title">Historik</string>
+    <string name="detail_show_more">Visa fler (%1$d)</string>
     <string name="detail_copy_number">Kopiera nummer</string>
     <string name="detail_edit_before_call">Redigera numret före samtal</string>
     <string name="detail_block">Blockera nummer</string>

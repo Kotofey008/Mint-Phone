@@ -175,6 +175,13 @@
     <string name="calls_clear_number">Очистить номер</string>
     <string name="call_details">Подробности вызова</string>
     <string name="calls_search_found">Найдено: %1$d</string>
+    <string name="calls_select">Выбрать</string>
+    <string name="calls_selected_count">Выбрано: %1$d</string>
+    <string name="calls_select_all">Выбрать все</string>
+    <string name="calls_deselect_all">Снять выбор</string>
+    <string name="calls_copy_numbers">Копировать номера</string>
+    <string name="calls_numbers_copied">Номера скопированы</string>
+    <string name="calls_delete_selected_text">Все вызовы с выбранными номерами будут удалены из журнала вызовов.</string>
     <string name="dialpad_long_press_plus">Ввести знак плюс</string>
     <string name="incall_unknown_caller">Неизвестный номер</string>
     <string name="incall_state_ringing">Входящий вызов</string>
@@ -245,6 +252,7 @@
     <string name="detail_stat_talk_time">Время разговора</string>
     <string name="detail_stat_latest">Последний вызов</string>
     <string name="detail_history_title">История</string>
+    <string name="detail_show_more">Показать ещё (%1$d)</string>
     <string name="detail_copy_number">Копировать номер</string>
     <string name="detail_edit_before_call">Изменить номер перед вызовом</string>
     <string name="detail_block">Заблокировать номер</string>

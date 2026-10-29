@@ -114,7 +114,7 @@ class CallDetailViewModelTest {
         viewModel.uiState.test {
             var state = awaitItem()
             while (state.entries.size != 2) state = awaitItem()
-            assertEquals(listOf(1L, 2L), state.entries.map { it.id })
+            assertEquals(listOf(2L, 1L), state.entries.map { it.id })
         }
     }
 
@@ -172,5 +172,40 @@ class CallDetailViewModelTest {
             while (state.loading) state = awaitItem()
         }
         assertEquals(listOf("0401234567"), callLog.deletedNumbers)
+    }
+
+    @Test
+    fun loadsOnlyTheFirstThreeCallsThenTenAtATime() = runTest {
+        val callLog = FakeCallLogRepository().apply {
+            entries.value = (1L..25L).map { entry(it, "0401234567") }
+        }
+        val viewModel = CallDetailViewModel(
+            callLog,
+            FakeContactsRepository(),
+            FakeBlockedNumbersRepository(),
+            FakeWhatsAppCallLogRepository(),
+            FakeSimAccountRepository(),
+        )
+        viewModel.setNumber("0401234567")
+        viewModel.uiState.test {
+            var state = awaitItem()
+            while (state.loading) state = awaitItem()
+            // Newest first, and counters cover all 25 even though 3 are loaded.
+            assertEquals(listOf(25L, 24L, 23L), state.entries.map { it.id })
+            assertEquals(25, state.totalCalls)
+            assertEquals(25, state.stats.total)
+            assertTrue(state.hasMore)
+
+            viewModel.onShowMore()
+            while (state.entries.size != 13) state = awaitItem()
+            assertEquals(12, state.remainingCalls)
+
+            viewModel.onShowMore()
+            while (state.entries.size != 23) state = awaitItem()
+            viewModel.onShowMore()
+            while (state.entries.size != 25) state = awaitItem()
+            assertFalse(state.hasMore)
+            assertEquals((25L downTo 1L).toList(), state.entries.map { it.id })
+        }
     }
 }

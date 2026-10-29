@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -12,6 +13,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.jarsi.arkphone.data.model.CallLogEntry
 import org.jarsi.arkphone.data.model.CallSource
 import org.jarsi.arkphone.data.model.CallType
+import org.jarsi.arkphone.ui.MiuixTestHost
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -56,8 +58,10 @@ class CallDetailContentTest {
         onToggleBlocked: () -> Unit = {},
         onDeleteHistory: () -> Unit = {},
         onWhatsAppCall: () -> Unit = {},
+        onShowMore: () -> Unit = {},
     ) {
         composeRule.setContent {
+            MiuixTestHost {
             CallDetailContent(
                 uiState = uiState,
                 onBack = {},
@@ -68,7 +72,9 @@ class CallDetailContentTest {
                 onToggleBlocked = onToggleBlocked,
                 onDeleteHistory = onDeleteHistory,
                 onWhatsAppCall = onWhatsAppCall,
+                onShowMore = onShowMore,
             )
+            }
         }
     }
 
@@ -125,5 +131,39 @@ class CallDetailContentTest {
         composeRule.onNodeWithText("Delete call history?").assertIsDisplayed()
         composeRule.onNodeWithText("Delete").performClick()
         assertEquals(1, deletes)
+    }
+
+    @Test
+    fun showMoreAppearsWhileCallsRemainAndAsksForTheNextPage() {
+        var asked = 0
+        val shown = (1L..3L).map { entry(it) }
+        setContent(
+            uiState(entries = shown).copy(totalCalls = 25),
+            onShowMore = { asked++ },
+        )
+        // 22 calls are still hidden; the next page is ten.
+        composeRule.onNodeWithText("Show more (10)").performScrollTo().performClick()
+        assertEquals(1, asked)
+    }
+
+    @Test
+    fun noShowMoreWhenEverythingIsLoaded() {
+        setContent(uiState(entries = listOf(entry(1), entry(2))))
+        composeRule.onAllNodesWithText("Show more", substring = true).assertCountEquals(0)
+    }
+
+    @Test
+    fun theStatsCoverTheWholeHistoryNotJustTheLoadedPage() {
+        setContent(
+            uiState(entries = listOf(entry(1))).copy(
+                stats = CallStats(
+                    total = 40, incoming = 25, outgoing = 10, missed = 5,
+                    totalDurationSeconds = 3_700, latestMillis = null,
+                ),
+                totalCalls = 40,
+            ),
+        )
+        composeRule.onNodeWithText("40").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("1 h 1 min").performScrollTo().assertIsDisplayed()
     }
 }

@@ -1,5 +1,10 @@
 package org.jarsi.arkphone.ui.calls
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -51,7 +56,7 @@ internal val KeypadEdgePadding = 16.dp
 /** Diameter of the folded call button and of the hide button. */
 internal val KeypadSmallButton = 60.dp
 
-private val KeypadCallButton = 72.dp
+private val KeypadCallButton = 64.dp
 
 private val keypadRows = listOf(
     listOf('1' to "", '2' to "ABC", '3' to "DEF"),
@@ -99,6 +104,7 @@ internal fun KeypadPanel(
     modifier: Modifier = Modifier,
 ) {
     val haptics = rememberHaptics()
+    val clipboard = LocalClipboardManager.current
     val shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
     Column(
         modifier = modifier
@@ -106,25 +112,33 @@ internal fun KeypadPanel(
             .shadow(elevation = 8.dp, shape = shape)
             .clip(shape)
             .background(MiuixTheme.colorScheme.surfaceContainer)
-            .padding(top = 12.dp),
+            .padding(top = 8.dp),
     ) {
-        KeypadNumberField(
-            uiState = uiState,
-            onDelete = onDelete,
-            onPaste = onPaste,
-            onClear = onClear,
-            modifier = Modifier.padding(horizontal = 24.dp),
-        )
+        // Nothing to show until a digit is typed, so the panel stays short.
+        AnimatedVisibility(
+            visible = uiState.number.isNotEmpty(),
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut(),
+        ) {
+            KeypadNumberField(
+                uiState = uiState,
+                onDelete = onDelete,
+                onPaste = onPaste,
+                onClear = onClear,
+                modifier = Modifier.padding(horizontal = 24.dp),
+            )
+        }
         KeypadGrid(
             onKey = onKey,
             onVoicemail = onVoicemail,
             onSpeedDial = onSpeedDial,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+            onPasteClipboard = { clipboard.getText()?.text?.let(onPaste) },
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
         )
         Box(
             Modifier
                 .fillMaxWidth()
-                .padding(top = 4.dp, bottom = KeypadEdgePadding),
+                .padding(top = 2.dp, bottom = KeypadEdgePadding),
         ) {
             FloatingActionButton(
                 onClick = {
@@ -176,7 +190,7 @@ private fun KeypadNumberField(
     val haptics = rememberHaptics()
     val clipboard = LocalClipboardManager.current
     Row(
-        modifier = modifier.fillMaxWidth().heightIn(min = 56.dp),
+        modifier = modifier.fillMaxWidth().heightIn(min = 48.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Mirrors the delete button so the number stays centered.
@@ -184,7 +198,7 @@ private fun KeypadNumberField(
         val pasteLabel = stringResource(R.string.dialpad_paste)
         Text(
             text = uiState.displayNumber.ifEmpty { uiState.number },
-            fontSize = 34.sp,
+            fontSize = 32.sp,
             color = MiuixTheme.colorScheme.onSurfaceContainer,
             textAlign = TextAlign.Center,
             maxLines = 1,
@@ -233,10 +247,11 @@ private fun KeypadGrid(
     onKey: (Char) -> Unit,
     onVoicemail: () -> Unit,
     onSpeedDial: (Int) -> Unit,
+    onPasteClipboard: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val haptics = rememberHaptics()
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         keypadRows.forEach { row ->
             Row(Modifier.fillMaxWidth()) {
                 row.forEach { (digit, letters) ->
@@ -266,6 +281,14 @@ private fun KeypadGrid(
                                     onSpeedDial(digit.digitToInt())
                                 }
                             }
+                            // With the number field hidden until a digit is typed,
+                            // "#" is the way to paste a copied number.
+                            '#' -> {
+                                {
+                                    haptics.longPress()
+                                    onPasteClipboard()
+                                }
+                            }
                             // A no-op (not null) so combinedClickable consumes the
                             // long-press instead of turning it into a click on release.
                             else -> {
@@ -276,6 +299,7 @@ private fun KeypadGrid(
                             '0' -> stringResource(R.string.dialpad_long_press_plus)
                             '1' -> stringResource(R.string.dialpad_long_press_voicemail)
                             in '2'..'9' -> stringResource(R.string.dialpad_long_press_speed_dial)
+                            '#' -> stringResource(R.string.dialpad_paste)
                             else -> null
                         },
                         modifier = Modifier.weight(1f),
@@ -301,8 +325,8 @@ private fun KeypadKey(
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
-            .height(64.dp)
-            .clip(RoundedCornerShape(32.dp))
+            .height(54.dp)
+            .clip(RoundedCornerShape(27.dp))
             .background(if (pressed) MiuixTheme.colorScheme.secondaryContainer else Color.Transparent)
             .combinedClickable(
                 interactionSource = interaction,
@@ -315,7 +339,7 @@ private fun KeypadKey(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = digit.toString(),
-                fontSize = 30.sp,
+                fontSize = 28.sp,
                 color = MiuixTheme.colorScheme.onSurfaceContainer,
             )
             if (letters.isNotEmpty()) {

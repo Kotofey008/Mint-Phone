@@ -165,6 +165,13 @@
     <string name="calls_clear_number">Tyhjennä numero</string>
     <string name="call_details">Puhelun tiedot</string>
     <string name="calls_search_found">Löytyi: %1$d</string>
+    <string name="calls_select">Valitse</string>
+    <string name="calls_selected_count">Valittu: %1$d</string>
+    <string name="calls_select_all">Valitse kaikki</string>
+    <string name="calls_deselect_all">Poista valinnat</string>
+    <string name="calls_copy_numbers">Kopioi numerot</string>
+    <string name="calls_numbers_copied">Numerot kopioitu</string>
+    <string name="calls_delete_selected_text">Kaikki valittujen numeroiden puhelut poistetaan puhelulokista.</string>
     <string name="dialpad_long_press_plus">Kirjoita plusmerkki</string>
     <string name="incall_unknown_caller">Tuntematon numero</string>
     <string name="incall_state_ringing">Saapuva puhelu</string>
@@ -233,6 +240,7 @@
     <string name="detail_stat_talk_time">Puheaika</string>
     <string name="detail_stat_latest">Viimeisin puhelu</string>
     <string name="detail_history_title">Historia</string>
+    <string name="detail_show_more">Näytä lisää (%1$d)</string>
     <string name="detail_copy_number">Kopioi numero</string>
     <string name="detail_edit_before_call">Muokkaa numeroa ennen soittoa</string>
     <string name="detail_block">Estä numero</string>

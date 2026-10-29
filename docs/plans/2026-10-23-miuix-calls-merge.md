@@ -75,3 +75,23 @@ Compose BOM. If the AAR metadata check asks for a higher `compileSdk`, raise it.
 - Round green call button with the dialpad dots icon; the keypad's call button
   uses the same green.
 - Not changed: Messages and Contacts tabs.
+
+## Stage 3: keypad, long-press menu, call details, faster matching
+- Keypad panel is shorter (smaller keys and gaps, 64 dp call button) and the
+  number field only appears once a digit is typed. Pasting works from the field,
+  or by long-pressing `#` while the field is hidden.
+- Long-press on a call row opens a popup menu (Select, Copy number, Edit number
+  before call). "Select" enters selection mode: bars hide, a top bar shows the
+  count with Select all / Cancel, a bottom bar copies the numbers or deletes the
+  history of the selected numbers (asks for WRITE_CALL_LOG when needed).
+- Call details are Miuix: header with round actions, a statistics card right
+  under them, then the history. Only the newest 3 calls are loaded; "Show more"
+  adds 10 at a time. `CallLogRepository.historyFor` reads one slim cursor pass
+  (counters and ids, last-4-digit prefilter before `PhoneNumberUtils.compare`)
+  and `entriesByIds` loads rows for a page. The old code loaded and compared the
+  whole log on the main flow, which froze the app on long histories.
+- Number matching: `DialpadMatcher.buildIndex` does the libphonenumber and T9
+  work once per change of contacts or call log (numbers are memoized across
+  rebuilds); `DialpadMatcher.search` only compares strings per keystroke.
+- Not done: the long-press menu follows common HyperOS practice, not a
+  screenshot (none was attached).

@@ -166,6 +166,13 @@
     <string name="calls_clear_number">Clear number</string>
     <string name="call_details">Call details</string>
     <string name="calls_search_found">Found: %1$d</string>
+    <string name="calls_select">Select</string>
+    <string name="calls_selected_count">Selected: %1$d</string>
+    <string name="calls_select_all">Select all</string>
+    <string name="calls_deselect_all">Deselect all</string>
+    <string name="calls_copy_numbers">Copy numbers</string>
+    <string name="calls_numbers_copied">Numbers copied</string>
+    <string name="calls_delete_selected_text">All calls with the selected numbers will be removed from the call log.</string>
     <string name="dialpad_long_press_plus">Type plus sign</string>
     <string name="incall_unknown_caller">Unknown number</string>
     <string name="incall_state_ringing">Incoming call</string>
@@ -237,6 +244,7 @@
     <string name="detail_stat_talk_time">Talk time</string>
     <string name="detail_stat_latest">Latest call</string>
     <string name="detail_history_title">History</string>
+    <string name="detail_show_more">Show more (%1$d)</string>
     <string name="detail_copy_number">Copy number</string>
     <string name="detail_edit_before_call">Edit number before call</string>
     <string name="detail_block">Block number</string>

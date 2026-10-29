@@ -211,4 +211,49 @@ class CallsContentTest {
         // Favorites step aside while a number is looked up.
         composeRule.onNodeWithText("Fave").assertDoesNotExist()
     }
+
+    @Test
+    fun theNumberFieldStaysHiddenUntilADigitIsTyped() {
+        composeRule.setContent {
+            MiuixTestHost {
+                CallsContent(
+                    favorites = emptyList(),
+                    recentsUiState = RecentsUiState(loading = false),
+                    onCall = {},
+                    onRequestPermissions = {},
+                    dialpadUiState = DialpadUiState(number = ""),
+                    keypadExpanded = true,
+                )
+            }
+        }
+        composeRule.onNodeWithContentDescription("Delete digit").assertDoesNotExist()
+        composeRule.onNodeWithText("5").assertIsDisplayed()
+    }
+
+    @Test
+    fun selectionModeShowsTheCountAndItsActions() {
+        var copied = 0
+        var deleted = 0
+        composeRule.setContent {
+            MiuixTestHost {
+                CallsContent(
+                    favorites = emptyList(),
+                    recentsUiState = RecentsUiState(loading = false),
+                    onCall = {},
+                    onRequestPermissions = {},
+                    selectionActive = true,
+                    selectedIds = setOf(1L, 2L),
+                    onCopySelected = { copied++ },
+                    onDeleteSelected = { deleted++ },
+                )
+            }
+        }
+        composeRule.onNodeWithText("Selected: 2").assertIsDisplayed()
+        composeRule.onNodeWithText("Copy numbers").performClick()
+        composeRule.onNodeWithText("Delete").performClick()
+        assertEquals(1, copied)
+        assertEquals(1, deleted)
+        // The keypad button steps aside while picking calls.
+        composeRule.onNodeWithContentDescription("Show keypad").assertDoesNotExist()
+    }
 }

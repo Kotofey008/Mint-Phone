@@ -175,6 +175,13 @@
     <string name="calls_clear_number">Wyczyść numer</string>
     <string name="call_details">Szczegóły połączenia</string>
     <string name="calls_search_found">Znaleziono: %1$d</string>
+    <string name="calls_select">Zaznacz</string>
+    <string name="calls_selected_count">Zaznaczono: %1$d</string>
+    <string name="calls_select_all">Zaznacz wszystko</string>
+    <string name="calls_deselect_all">Odznacz wszystko</string>
+    <string name="calls_copy_numbers">Kopiuj numery</string>
+    <string name="calls_numbers_copied">Numery skopiowane</string>
+    <string name="calls_delete_selected_text">Wszystkie połączenia z wybranymi numerami zostaną usunięte z rejestru połączeń.</string>
     <string name="dialpad_long_press_plus">Wpisz znak plus</string>
     <string name="incall_unknown_caller">Nieznany numer</string>
     <string name="incall_state_ringing">Połączenie przychodzące</string>
@@ -245,6 +252,7 @@
     <string name="detail_stat_talk_time">Czas rozmów</string>
     <string name="detail_stat_latest">Ostatnie połączenie</string>
     <string name="detail_history_title">Historia</string>
+    <string name="detail_show_more">Pokaż więcej (%1$d)</string>
     <string name="detail_copy_number">Kopiuj numer</string>
     <string name="detail_edit_before_call">Edytuj numer przed połączeniem</string>
     <string name="detail_block">Zablokuj numer</string>

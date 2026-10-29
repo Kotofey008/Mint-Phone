@@ -165,6 +165,13 @@
     <string name="calls_clear_number">Kustuta number</string>
     <string name="call_details">Kõne üksikasjad</string>
     <string name="calls_search_found">Leitud: %1$d</string>
+    <string name="calls_select">Vali</string>
+    <string name="calls_selected_count">Valitud: %1$d</string>
+    <string name="calls_select_all">Vali kõik</string>
+    <string name="calls_deselect_all">Tühista valik</string>
+    <string name="calls_copy_numbers">Kopeeri numbrid</string>
+    <string name="calls_numbers_copied">Numbrid kopeeritud</string>
+    <string name="calls_delete_selected_text">Kõik valitud numbritega kõned eemaldatakse kõnelogist.</string>
     <string name="dialpad_long_press_plus">Sisesta plussmärk</string>
     <string name="incall_unknown_caller">Tundmatu number</string>
     <string name="incall_state_ringing">Sissetulev kõne</string>
@@ -233,6 +240,7 @@
     <string name="detail_stat_talk_time">Kõneaeg</string>
     <string name="detail_stat_latest">Viimane kõne</string>
     <string name="detail_history_title">Ajalugu</string>
+    <string name="detail_show_more">Näita rohkem (%1$d)</string>
     <string name="detail_copy_number">Kopeeri number</string>
     <string name="detail_edit_before_call">Muuda numbrit enne helistamist</string>
     <string name="detail_block">Blokeeri number</string>
