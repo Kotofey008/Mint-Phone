@@ -171,11 +171,13 @@
     <string name="call_details">Detalles de la llamada</string>
     <string name="calls_search_found">Encontrados: %1$d</string>
     <string name="calls_select">Seleccionar</string>
+    <string name="calls_send_message">Enviar mensaje</string>
+    <string name="calls_call_with_sim">Llamar con %1$s</string>
+    <string name="calls_edit_and_call">Editar número y llamar</string>
+    <string name="calls_copy">Copiar</string>
     <string name="calls_selected_count">Seleccionados: %1$d</string>
     <string name="calls_select_all">Seleccionar todo</string>
     <string name="calls_deselect_all">Deseleccionar todo</string>
-    <string name="calls_copy_numbers">Copiar números</string>
-    <string name="calls_numbers_copied">Números copiados</string>
     <string name="calls_delete_selected_text">Todas las llamadas con los números seleccionados se eliminarán del registro de llamadas.</string>
     <string name="dialpad_long_press_plus">Escribir el signo más</string>
     <string name="incall_unknown_caller">Número desconocido</string>

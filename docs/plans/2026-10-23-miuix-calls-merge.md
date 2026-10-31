@@ -95,3 +95,20 @@ Compose BOM. If the AAR metadata check asks for a higher `compileSdk`, raise it.
   rebuilds); `DialpadMatcher.search` only compares strings per keystroke.
 - Not done: the long-press menu follows common HyperOS practice, not a
   screenshot (none was attached).
+
+## Stage 4: HyperOS screenshots (menus, selection, call details)
+- "Menu" always means the Miuix dropdown popup. The row menu is an
+  `OverlayListPopup` + `ListPopupColumn` + `DropdownImpl` (the popup behind
+  `DropdownPreference`): Send message, Call with SIMn (only with several SIMs),
+  Edit number and call, Copy, Delete, then a separator and Select. "Call with
+  SIM" goes through the new `CallRouter.placeCallOnSim`.
+- The details "⋮" is an `OverlayIconDropdownMenu` (`DropdownEntry` groups).
+- Selection mode lives in the host (`CallsSelection`): the same `TopAppBar` with
+  a close icon, a select-all icon and the title "Selected: N", and a one-item
+  `NavigationBar` with Delete at the bottom. Selected rows get a light band and a
+  blue check; the rest a gray disc.
+- Call details use `TopAppBar` + `MiuixScrollBehavior` with the name or number as
+  the large title. Cards: the number with round call and message buttons (and a
+  WhatsApp row), statistics, the history (3 newest, "Show more" +10) and a red
+  Block card.
+- Delete removes a caller's whole history: the call log is deleted by number.

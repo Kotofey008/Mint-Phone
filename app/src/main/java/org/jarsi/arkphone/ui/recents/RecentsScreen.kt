@@ -39,7 +39,6 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -124,6 +123,9 @@ fun RecentsContent(
     onToggleSelect: (Long) -> Unit = {},
     onStartSelection: (Long) -> Unit = {},
     onEditBeforeCall: (String) -> Unit = {},
+    onMessage: (String) -> Unit = {},
+    onCallOnSim: (number: String, simAccountId: String) -> Unit = { _, _ -> },
+    onRequestDelete: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     topItems: LazyListScope.() -> Unit = {},
@@ -144,6 +146,7 @@ fun RecentsContent(
             callRows(
                 uiState, onCall, onOpenDetails, onOpenNameDetails, onWhatsAppCall,
                 selectionMode, selectedIds, onToggleSelect, onStartSelection, onEditBeforeCall,
+                onMessage, onCallOnSim, onRequestDelete,
             )
             return@LazyColumn
         }
@@ -161,6 +164,7 @@ fun RecentsContent(
                 callRows(
                     uiState, onCall, onOpenDetails, onOpenNameDetails, onWhatsAppCall,
                     selectionMode, selectedIds, onToggleSelect, onStartSelection, onEditBeforeCall,
+                onMessage, onCallOnSim, onRequestDelete,
                 )
             }
             return@LazyColumn
@@ -233,6 +237,7 @@ fun RecentsContent(
                 callRows(
                     uiState, onCall, onOpenDetails, onOpenNameDetails, onWhatsAppCall,
                     selectionMode, selectedIds, onToggleSelect, onStartSelection, onEditBeforeCall,
+                onMessage, onCallOnSim, onRequestDelete,
                 )
                 items(contactRows, key = { "contact-${it.id}" }) { contact ->
                     ContactRow(contact = contact, onCall = onCall, onOpenDetails = onOpenDetails)
@@ -256,6 +261,9 @@ private fun LazyListScope.callRows(
     onToggleSelect: (Long) -> Unit,
     onStartSelection: (Long) -> Unit,
     onEditBeforeCall: (String) -> Unit,
+    onMessage: (String) -> Unit,
+    onCallOnSim: (String, String) -> Unit,
+    onRequestDelete: (String) -> Unit,
 ) {
     items(uiState.entries, key = { it.entry.id }) { grouped ->
         RecentsRow(
@@ -270,6 +278,9 @@ private fun LazyListScope.callRows(
             onToggleSelect = { onToggleSelect(grouped.entry.id) },
             onStartSelection = { onStartSelection(grouped.entry.id) },
             onEditBeforeCall = onEditBeforeCall,
+            onMessage = onMessage,
+            onCallOnSim = onCallOnSim,
+            onRequestDelete = onRequestDelete,
         )
     }
 }
@@ -375,6 +386,9 @@ private fun RecentsRow(
     onToggleSelect: () -> Unit,
     onStartSelection: () -> Unit,
     onEditBeforeCall: (String) -> Unit,
+    onMessage: (String) -> Unit,
+    onCallOnSim: (String, String) -> Unit,
+    onRequestDelete: (String) -> Unit,
 ) {
     val entry = grouped.entry
     val haptics = rememberHaptics()
@@ -403,30 +417,57 @@ private fun RecentsRow(
             else -> Unit
         }
     }
-    val menuEntries = buildList {
-        add(MenuEntry(stringResource(R.string.calls_select)) {
-            menuOpen = false
-            onStartSelection()
-        })
-        if (entry.number.isNotBlank()) {
-            add(MenuEntry(stringResource(R.string.detail_copy_number)) {
-                menuOpen = false
-                clipboard.setText(AnnotatedString(entry.number))
-                Toast.makeText(context, copiedText, Toast.LENGTH_SHORT).show()
-            })
-            add(MenuEntry(stringResource(R.string.detail_edit_before_call)) {
-                menuOpen = false
-                onEditBeforeCall(entry.number)
-            })
-        }
-    }
+    // The same list HyperOS offers: act on the number, then pick.
+    val hasNumber = entry.number.isNotBlank()
+    val callOnSim = if (hasNumber && simAccounts.size > 1) simAccounts else emptyList()
+    val menuGroups = buildList {
+        add(
+            buildList {
+                if (hasNumber) {
+                    add(MenuEntry(stringResource(R.string.calls_send_message)) {
+                        menuOpen = false
+                        onMessage(entry.number)
+                    })
+                }
+                callOnSim.forEach { sim ->
+                    add(MenuEntry(stringResource(R.string.calls_call_with_sim, sim.label)) {
+                        menuOpen = false
+                        onCallOnSim(entry.number, sim.id)
+                    })
+                }
+                if (hasNumber) {
+                    add(MenuEntry(stringResource(R.string.calls_edit_and_call)) {
+                        menuOpen = false
+                        onEditBeforeCall(entry.number)
+                    })
+                    add(MenuEntry(stringResource(R.string.calls_copy)) {
+                        menuOpen = false
+                        clipboard.setText(AnnotatedString(entry.number))
+                        Toast.makeText(context, copiedText, Toast.LENGTH_SHORT).show()
+                    })
+                    add(MenuEntry(stringResource(R.string.common_delete)) {
+                        menuOpen = false
+                        onRequestDelete(entry.number)
+                    })
+                }
+            },
+        )
+        add(
+            listOf(
+                MenuEntry(stringResource(R.string.calls_select)) {
+                    menuOpen = false
+                    onStartSelection()
+                },
+            ),
+        )
+    }.filter { it.isNotEmpty() }
     Box {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
             .background(
-                if (selected) MiuixTheme.colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent,
+                if (selected) MiuixTheme.colorScheme.onBackground.copy(alpha = 0.09f) else Color.Transparent,
             )
             .pressHighlight(
                 onClick = {
@@ -488,24 +529,23 @@ private fun RecentsRow(
     MiuixPopupMenu(
         expanded = menuOpen,
         onDismissRequest = { menuOpen = false },
-        entries = menuEntries,
-        alignment = Alignment.BottomStart,
-        offset = IntOffset(x = 120, y = 0),
+        groups = menuGroups,
     )
     }
 }
 
-/** The round check at the end of a row while picking calls. */
+/** The round mark at the end of a row while picking calls: a blue disc with a
+ *  check when chosen, a plain gray disc when not. */
 @Composable
 private fun SelectionCheck(selected: Boolean) {
     val accent = MiuixTheme.colorScheme.primary
-    val outline = MiuixTheme.colorScheme.onSurfaceContainerVariant
-    Canvas(Modifier.size(24.dp)) {
+    val idle = MiuixTheme.colorScheme.secondaryContainer
+    Canvas(Modifier.size(28.dp)) {
+        drawCircle(if (selected) accent else idle)
         if (selected) {
-            drawCircle(accent)
             val check = Path().apply {
                 moveTo(size.width * 0.27f, size.height * 0.52f)
-                lineTo(size.width * 0.44f, size.height * 0.68f)
+                lineTo(size.width * 0.43f, size.height * 0.67f)
                 lineTo(size.width * 0.74f, size.height * 0.34f)
             }
             drawPath(
@@ -513,8 +553,6 @@ private fun SelectionCheck(selected: Boolean) {
                 Color.White,
                 style = Stroke(width = size.width * 0.1f, cap = StrokeCap.Round, join = StrokeJoin.Round),
             )
-        } else {
-            drawCircle(outline, style = Stroke(width = size.width * 0.07f))
         }
     }
 }

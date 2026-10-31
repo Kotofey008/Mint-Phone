@@ -53,6 +53,30 @@ internal val ChevronRightIcon: ImageVector = ImageVector.Builder(
     }
 }.build()
 
+/** "Select all": three lines, the first two ticked. Miuix has no such glyph. */
+internal val SelectAllIcon: ImageVector = ImageVector.Builder(
+    name = "SelectAll",
+    defaultWidth = 24.dp,
+    defaultHeight = 24.dp,
+    viewportWidth = 24f,
+    viewportHeight = 24f,
+).apply {
+    path(
+        fill = null,
+        stroke = SolidColor(Color.Black),
+        strokeLineWidth = 1.8f,
+        strokeLineCap = StrokeCap.Round,
+        strokeLineJoin = StrokeJoin.Round,
+    ) {
+        moveTo(12f, 6f); lineTo(21f, 6f)
+        moveTo(12f, 12f); lineTo(21f, 12f)
+        moveTo(12f, 18f); lineTo(21f, 18f)
+        moveTo(3f, 5.5f); lineTo(4.8f, 7.3f); lineTo(7.8f, 4.2f)
+        moveTo(3f, 11.5f); lineTo(4.8f, 13.3f); lineTo(7.8f, 10.2f)
+        moveTo(3f, 17.5f); lineTo(4.8f, 19.3f); lineTo(7.8f, 16.2f)
+    }
+}.build()
+
 /** Row feedback without a ripple: the row tints while pressed, like Miuix lists. */
 internal fun Modifier.pressHighlight(
     onClick: () -> Unit,

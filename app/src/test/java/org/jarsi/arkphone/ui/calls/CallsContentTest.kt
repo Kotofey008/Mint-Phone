@@ -17,6 +17,7 @@ import org.jarsi.arkphone.ui.dialpad.DialpadUiState
 import org.jarsi.arkphone.ui.recents.GroupedCallLogEntry
 import org.jarsi.arkphone.ui.recents.RecentsUiState
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -231,29 +232,55 @@ class CallsContentTest {
     }
 
     @Test
-    fun selectionModeShowsTheCountAndItsActions() {
-        var copied = 0
-        var deleted = 0
+    fun selectionModeShowsCheckMarksAndHidesTheKeypadButton() {
         composeRule.setContent {
             MiuixTestHost {
                 CallsContent(
                     favorites = emptyList(),
-                    recentsUiState = RecentsUiState(loading = false),
+                    recentsUiState = RecentsUiState(
+                        loading = false,
+                        entries = listOf(
+                            GroupedCallLogEntry(
+                                CallLogEntry(
+                                    id = 1,
+                                    number = "0401234567",
+                                    displayName = "Alice",
+                                    type = CallType.INCOMING,
+                                    timestampMillis = 1_720_000_000_000,
+                                    durationSeconds = 5,
+                                ),
+                            ),
+                        ),
+                    ),
                     onCall = {},
                     onRequestPermissions = {},
                     selectionActive = true,
-                    selectedIds = setOf(1L, 2L),
-                    onCopySelected = { copied++ },
-                    onDeleteSelected = { deleted++ },
+                    selectedIds = setOf(1L),
                 )
             }
         }
-        composeRule.onNodeWithText("Selected: 2").assertIsDisplayed()
-        composeRule.onNodeWithText("Copy numbers").performClick()
-        composeRule.onNodeWithText("Delete").performClick()
-        assertEquals(1, copied)
-        assertEquals(1, deleted)
-        // The keypad button steps aside while picking calls.
+        composeRule.onNodeWithText("Alice").assertIsDisplayed()
+        // The details chevron gives way to the selection mark, and the call
+        // button stays out of the way while picking.
+        composeRule.onNodeWithContentDescription("Call details").assertDoesNotExist()
         composeRule.onNodeWithContentDescription("Show keypad").assertDoesNotExist()
+    }
+
+    @Test
+    fun theSelectionHolderCountsTogglesAndSelectsAll() {
+        val selection = CallsSelection()
+        selection.allIds = listOf(1L, 2L, 3L)
+        selection.start(2L)
+        assertEquals(1, selection.count)
+        assertTrue(selection.active)
+        selection.toggle(3L)
+        assertEquals(setOf(2L, 3L), selection.ids)
+        selection.toggleAll()
+        assertEquals(setOf(1L, 2L, 3L), selection.ids)
+        assertTrue(selection.allSelected)
+        selection.toggleAll()
+        assertEquals(emptySet<Long>(), selection.ids)
+        selection.cancel()
+        assertEquals(false, selection.active)
     }
 }

@@ -51,6 +51,11 @@ class CallRouter @Inject constructor(
         return phoneCaller.placeCall(number)
     }
 
+    /** A call on a SIM the person picked for this one call: always over the
+     *  mobile network, never rerouted through the internet. */
+    fun placeCallOnSim(number: String, simAccountId: String): Boolean =
+        phoneCaller.placeCall(number, simAccountId)
+
     /** Voicemail is always the operator's; there is no internet equivalent. */
     fun placeVoicemailCall(): Boolean = phoneCaller.placeVoicemailCall()
 }

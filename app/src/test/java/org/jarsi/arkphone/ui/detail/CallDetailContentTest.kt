@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -95,30 +96,44 @@ class CallDetailContentTest {
     @Test
     fun showsHeaderStatsAndWhatsAppLabel() {
         setContent(uiState())
-        composeRule.onNodeWithText("Alice").assertIsDisplayed()
+        // The title is drawn twice (large and collapsed) by the top app bar.
+        composeRule.onAllNodesWithText("Alice").onFirst().assertExists()
         composeRule.onNodeWithText("Statistics").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Talk time").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("2 min 0 s").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Incoming call · WhatsApp").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Incoming call · WhatsApp", substring = true).performScrollTo().assertIsDisplayed()
     }
 
     @Test
-    fun menuOffersActionsAndCopyReports() {
+    fun menuOffersNumberActionsAndCopyReports() {
         var copied = false
         setContent(uiState(), onCopyNumber = { copied = true })
         composeRule.onNodeWithContentDescription("More options").performClick()
         composeRule.onNodeWithText("Edit number before call").assertIsDisplayed()
-        composeRule.onNodeWithText("Block number").assertIsDisplayed()
+        composeRule.onNodeWithText("Delete history").assertIsDisplayed()
         composeRule.onNodeWithText("Copy number").performClick()
         assertTrue(copied)
     }
 
     @Test
-    fun blockedStateShowsBadgeAndUnblockItem() {
+    fun blockIsItsOwnCardAndTogglesTheBlock() {
+        var toggles = 0
+        setContent(uiState(), onToggleBlocked = { toggles++ })
+        composeRule.onNodeWithText("Block number").performScrollTo().performClick()
+        assertEquals(1, toggles)
+    }
+
+    @Test
+    fun noBlockCardWhenBlockingIsUnavailable() {
+        setContent(uiState(canBlock = false))
+        composeRule.onAllNodesWithText("Block number").assertCountEquals(0)
+    }
+
+    @Test
+    fun blockedStateShowsBadgeAndUnblockCard() {
         setContent(uiState(blocked = true))
         composeRule.onNodeWithText("Blocked").assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("More options").performClick()
-        composeRule.onNodeWithText("Unblock number").assertIsDisplayed()
+        composeRule.onNodeWithText("Unblock number").performScrollTo().assertIsDisplayed()
     }
 
     @Test

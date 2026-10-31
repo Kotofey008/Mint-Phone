@@ -166,11 +166,13 @@
     <string name="call_details">Anrufdetails</string>
     <string name="calls_search_found">Gefunden: %1$d</string>
     <string name="calls_select">Auswählen</string>
+    <string name="calls_send_message">Nachricht senden</string>
+    <string name="calls_call_with_sim">Anruf mit %1$s</string>
+    <string name="calls_edit_and_call">Nummer ändern und anrufen</string>
+    <string name="calls_copy">Kopieren</string>
     <string name="calls_selected_count">Ausgewählt: %1$d</string>
     <string name="calls_select_all">Alle auswählen</string>
     <string name="calls_deselect_all">Alle abwählen</string>
-    <string name="calls_copy_numbers">Nummern kopieren</string>
-    <string name="calls_numbers_copied">Nummern kopiert</string>
     <string name="calls_delete_selected_text">Alle Anrufe mit den ausgewählten Nummern werden aus der Anrufliste entfernt.</string>
     <string name="dialpad_long_press_plus">Pluszeichen eingeben</string>
     <string name="incall_unknown_caller">Unbekannte Nummer</string>

@@ -57,6 +57,9 @@ class RecentsScreenTest {
         onToggleSelect: (Long) -> Unit = {},
         onStartSelection: (Long) -> Unit = {},
         onEditBeforeCall: (String) -> Unit = {},
+        onMessage: (String) -> Unit = {},
+        onCallOnSim: (String, String) -> Unit = { _, _ -> },
+        onRequestDelete: (String) -> Unit = {},
     ) {
         composeRule.setContent {
             MiuixTestHost {
@@ -76,6 +79,9 @@ class RecentsScreenTest {
                 onToggleSelect = onToggleSelect,
                 onStartSelection = onStartSelection,
                 onEditBeforeCall = onEditBeforeCall,
+                onMessage = onMessage,
+                onCallOnSim = onCallOnSim,
+                onRequestDelete = onRequestDelete,
             )
             }
         }
@@ -128,15 +134,17 @@ class RecentsScreenTest {
         setContent(entry())
         composeRule.onNodeWithText("Matti Meikäläinen").performTouchInput { longClick() }
         composeRule.onNodeWithText("Select").assertIsDisplayed()
-        composeRule.onNodeWithText("Copy number").assertIsDisplayed()
-        composeRule.onNodeWithText("Edit number before call").assertIsDisplayed()
+        composeRule.onNodeWithText("Copy").assertIsDisplayed()
+        composeRule.onNodeWithText("Edit number and call").assertIsDisplayed()
+        composeRule.onNodeWithText("Send message").assertIsDisplayed()
+        composeRule.onNodeWithText("Delete").assertIsDisplayed()
     }
 
     @Test
     fun theMenuCopiesTheNumber() {
         setContent(entry())
         composeRule.onNodeWithText("Matti Meikäläinen").performTouchInput { longClick() }
-        composeRule.onNodeWithText("Copy number").performClick()
+        composeRule.onNodeWithText("Copy").performClick()
         val clipboard = ApplicationProvider.getApplicationContext<android.app.Application>()
             .getSystemService(android.content.ClipboardManager::class.java)
         assertEquals("0401234567", clipboard.primaryClip?.getItemAt(0)?.text?.toString())
@@ -157,7 +165,7 @@ class RecentsScreenTest {
         var edited: String? = null
         setContent(entry(), onEditBeforeCall = { edited = it })
         composeRule.onNodeWithText("Matti Meikäläinen").performTouchInput { longClick() }
-        composeRule.onNodeWithText("Edit number before call").performClick()
+        composeRule.onNodeWithText("Edit number and call").performClick()
         assertEquals("0401234567", edited)
     }
 
@@ -219,5 +227,18 @@ class RecentsScreenTest {
         composeRule.onNodeWithContentDescription("Call details").performClick()
         assertNull(dialed)
         assertNull(opened)
+    }
+
+    @Test
+    fun theMenuSendsAMessageAndAsksToDeleteTheNumber() {
+        var messaged: String? = null
+        var deleted: String? = null
+        setContent(entry(), onMessage = { messaged = it }, onRequestDelete = { deleted = it })
+        composeRule.onNodeWithText("Matti Meikäläinen").performTouchInput { longClick() }
+        composeRule.onNodeWithText("Send message").performClick()
+        assertEquals("0401234567", messaged)
+        composeRule.onNodeWithText("Matti Meikäläinen").performTouchInput { longClick() }
+        composeRule.onNodeWithText("Delete").performClick()
+        assertEquals("0401234567", deleted)
     }
 }

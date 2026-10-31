@@ -166,11 +166,13 @@
     <string name="call_details">Samtalsinformation</string>
     <string name="calls_search_found">Hittade: %1$d</string>
     <string name="calls_select">Markera</string>
+    <string name="calls_send_message">Skicka meddelande</string>
+    <string name="calls_call_with_sim">Ring med %1$s</string>
+    <string name="calls_edit_and_call">Redigera nummer och ring</string>
+    <string name="calls_copy">Kopiera</string>
     <string name="calls_selected_count">Markerade: %1$d</string>
     <string name="calls_select_all">Markera alla</string>
     <string name="calls_deselect_all">Avmarkera alla</string>
-    <string name="calls_copy_numbers">Kopiera numren</string>
-    <string name="calls_numbers_copied">Numren kopierades</string>
     <string name="calls_delete_selected_text">Alla samtal med de markerade numren tas bort från samtalsloggen.</string>
     <string name="dialpad_long_press_plus">Skriv plustecken</string>
     <string name="incall_unknown_caller">Okänt nummer</string>

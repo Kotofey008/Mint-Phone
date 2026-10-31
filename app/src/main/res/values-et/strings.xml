@@ -166,11 +166,13 @@
     <string name="call_details">Kõne üksikasjad</string>
     <string name="calls_search_found">Leitud: %1$d</string>
     <string name="calls_select">Vali</string>
+    <string name="calls_send_message">Saada sõnum</string>
+    <string name="calls_call_with_sim">Helista: %1$s</string>
+    <string name="calls_edit_and_call">Muuda numbrit ja helista</string>
+    <string name="calls_copy">Kopeeri</string>
     <string name="calls_selected_count">Valitud: %1$d</string>
     <string name="calls_select_all">Vali kõik</string>
     <string name="calls_deselect_all">Tühista valik</string>
-    <string name="calls_copy_numbers">Kopeeri numbrid</string>
-    <string name="calls_numbers_copied">Numbrid kopeeritud</string>
     <string name="calls_delete_selected_text">Kõik valitud numbritega kõned eemaldatakse kõnelogist.</string>
     <string name="dialpad_long_press_plus">Sisesta plussmärk</string>
     <string name="incall_unknown_caller">Tundmatu number</string>

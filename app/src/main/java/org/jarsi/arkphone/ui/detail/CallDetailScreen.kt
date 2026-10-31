@@ -4,7 +4,6 @@ import android.text.format.DateUtils
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,10 +26,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -44,24 +46,22 @@ import org.jarsi.arkphone.data.model.CallType
 import org.jarsi.arkphone.data.model.SimAccount
 import org.jarsi.arkphone.data.simLabelFor
 import org.jarsi.arkphone.ui.calls.CallButtonGreen
-import org.jarsi.arkphone.ui.components.MenuEntry
 import org.jarsi.arkphone.ui.components.MiuixConfirmDialog
-import org.jarsi.arkphone.ui.components.MiuixPopupMenu
 import org.jarsi.arkphone.ui.components.rememberHaptics
-import org.jarsi.arkphone.ui.recents.CallsAvatar
 import org.jarsi.arkphone.ui.recents.callTypeLabelRes
 import org.jarsi.arkphone.util.formatDuration
-import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.menu.OverlayIconDropdownMenu
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
-import top.yukonga.miuix.kmp.icon.extended.Blocklist
 import top.yukonga.miuix.kmp.icon.extended.More
 import top.yukonga.miuix.kmp.icon.extended.Messages
 import top.yukonga.miuix.kmp.icon.extended.Phone
@@ -107,38 +107,31 @@ fun CallDetailContent(
     onShowMore: () -> Unit = {},
 ) {
     val haptics = rememberHaptics()
-    var menuOpen by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    val scrollBehavior = MiuixScrollBehavior()
+    val copyLabel = stringResource(R.string.detail_copy_number)
+    val editLabel = stringResource(R.string.detail_edit_before_call)
+    val deleteLabel = stringResource(R.string.detail_delete_history)
+    // The "⋮" menu is a Miuix icon dropdown: number actions, then a separated
+    // group for the destructive one.
     val menuEntries = buildList {
         if (uiState.hasNumber) {
-            add(MenuEntry(stringResource(R.string.detail_copy_number)) {
-                menuOpen = false
-                onCopyNumber()
-            })
-            add(MenuEntry(stringResource(R.string.detail_edit_before_call)) {
-                menuOpen = false
-                onEditBeforeCall()
-            })
-        }
-        if (uiState.canBlock) {
             add(
-                MenuEntry(
-                    stringResource(if (uiState.blocked) R.string.detail_unblock else R.string.detail_block),
-                ) {
-                    menuOpen = false
-                    onToggleBlocked()
-                },
+                DropdownEntry(
+                    items = listOf(
+                        DropdownItem(text = copyLabel, onClick = onCopyNumber),
+                        DropdownItem(text = editLabel, onClick = onEditBeforeCall),
+                    ),
+                ),
             )
         }
-        add(MenuEntry(stringResource(R.string.detail_delete_history), destructive = true) {
-            menuOpen = false
-            confirmDelete = true
-        })
+        add(DropdownEntry(items = listOf(DropdownItem(text = deleteLabel, onClick = { confirmDelete = true }))))
     }
     Scaffold(
         topBar = {
-            SmallTopAppBar(
-                title = "",
+            TopAppBar(
+                title = uiState.displayName ?: uiState.number,
+                scrollBehavior = scrollBehavior,
                 navigationIcon = {
                     IconButton(
                         onClick = {
@@ -154,23 +147,11 @@ fun CallDetailContent(
                     }
                 },
                 actions = {
-                    Box {
-                        IconButton(
-                            onClick = {
-                                haptics.click()
-                                menuOpen = true
-                            },
-                        ) {
-                            Icon(
-                                MiuixIcons.More,
-                                contentDescription = stringResource(R.string.detail_more_options),
-                                tint = MiuixTheme.colorScheme.onBackground,
-                            )
-                        }
-                        MiuixPopupMenu(
-                            expanded = menuOpen,
-                            onDismissRequest = { menuOpen = false },
-                            entries = menuEntries,
+                    OverlayIconDropdownMenu(entries = menuEntries, collapseOnSelection = true) {
+                        Icon(
+                            MiuixIcons.More,
+                            contentDescription = stringResource(R.string.detail_more_options),
+                            tint = MiuixTheme.colorScheme.onBackground,
                         )
                     }
                 },
@@ -179,90 +160,25 @@ fun CallDetailContent(
     ) { padding ->
         Column(
             Modifier
-                .padding(padding)
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally,
+                .nestedScroll(scrollBehavior.nestedScrollConnection)
+                .verticalScroll(rememberScrollState())
+                .padding(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding()),
         ) {
-            CallsAvatar(uiState.photoUri, size = 96.dp)
-            Text(
-                text = uiState.displayName ?: uiState.number,
-                fontSize = 26.sp,
-                fontWeight = FontWeight.Medium,
-                color = MiuixTheme.colorScheme.onBackground,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 12.dp),
+            ContactCard(
+                uiState = uiState,
+                onCall = onCall,
+                onMessage = onMessage,
+                onWhatsAppCall = onWhatsAppCall,
             )
-            if (uiState.displayName != null && uiState.hasNumber) {
-                Text(
-                    text = uiState.number,
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
-                    modifier = Modifier.padding(top = 2.dp),
-                )
-            }
-            if (uiState.blocked) {
-                Text(
-                    text = stringResource(R.string.detail_blocked_badge),
-                    style = MiuixTheme.textStyles.body2,
-                    fontWeight = FontWeight.Medium,
-                    color = MiuixTheme.colorScheme.error,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-            }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(24.dp),
-                modifier = Modifier.padding(vertical = 20.dp),
-            ) {
-                if (uiState.hasNumber) {
-                    ActionButton(
-                        label = stringResource(R.string.dialpad_call),
-                        container = CallButtonGreen,
-                        onClick = {
-                            haptics.confirm()
-                            onCall()
-                        },
-                    ) {
-                        Icon(
-                            MiuixIcons.Phone,
-                            contentDescription = null,
-                            tint = Color.White,
-                        )
-                    }
-                    ActionButton(
-                        label = stringResource(R.string.detail_message),
-                        container = MiuixTheme.colorScheme.secondaryContainer,
-                        onClick = {
-                            haptics.click()
-                            onMessage()
-                        },
-                    ) {
-                        Icon(
-                            MiuixIcons.Messages,
-                            contentDescription = null,
-                            tint = MiuixTheme.colorScheme.onSecondaryContainer,
-                        )
-                    }
-                }
-                if (uiState.hasWhatsAppCalls) {
-                    ActionButton(
-                        label = stringResource(R.string.call_source_whatsapp),
-                        container = MiuixTheme.colorScheme.secondaryContainer,
-                        onClick = {
-                            haptics.confirm()
-                            onWhatsAppCall()
-                        },
-                    ) {
-                        Image(
-                            painterResource(R.drawable.ic_whatsapp),
-                            contentDescription = stringResource(R.string.call_whatsapp),
-                            modifier = Modifier.size(26.dp),
-                        )
-                    }
-                }
-            }
             StatsCard(uiState.stats)
             HistorySection(uiState, onShowMore)
+            if (uiState.canBlock) {
+                BlockCard(blocked = uiState.blocked, onClick = {
+                    haptics.click()
+                    onToggleBlocked()
+                })
+            }
             Spacer(Modifier.height(24.dp))
         }
     }
@@ -282,38 +198,106 @@ fun CallDetailContent(
     }
 }
 
-/** A round action with its label underneath, like the HyperOS contact card. */
+/** The caller: number with round call and message buttons at its end, and a
+ *  WhatsApp row when some of the calls came over WhatsApp. */
 @Composable
-private fun ActionButton(
-    label: String,
-    container: Color,
+private fun ContactCard(
+    uiState: CallDetailUiState,
+    onCall: () -> Unit,
+    onMessage: () -> Unit,
+    onWhatsAppCall: () -> Unit,
+) {
+    val haptics = rememberHaptics()
+    if (!uiState.hasNumber && !uiState.hasWhatsAppCalls) return
+    Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) {
+        if (uiState.hasNumber) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = uiState.number,
+                        fontSize = 20.sp,
+                        color = MiuixTheme.colorScheme.onSurfaceContainer,
+                    )
+                    if (uiState.blocked) {
+                        Text(
+                            text = stringResource(R.string.detail_blocked_badge),
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.error,
+                            modifier = Modifier.padding(top = 2.dp),
+                        )
+                    }
+                }
+                RoundAction(stringResource(R.string.dialpad_call), onClick = {
+                    haptics.confirm()
+                    onCall()
+                }) {
+                    Icon(MiuixIcons.Phone, contentDescription = null, tint = CallButtonGreen)
+                }
+                Spacer(Modifier.width(12.dp))
+                RoundAction(stringResource(R.string.detail_message), onClick = {
+                    haptics.click()
+                    onMessage()
+                }) {
+                    Icon(MiuixIcons.Messages, contentDescription = null, tint = CallButtonGreen)
+                }
+            }
+        }
+        if (uiState.hasWhatsAppCalls) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.call_source_whatsapp),
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MiuixTheme.colorScheme.onSurfaceContainer,
+                    modifier = Modifier.weight(1f),
+                )
+                val whatsAppLabel = stringResource(R.string.call_whatsapp)
+                Image(
+                    painterResource(R.drawable.ic_whatsapp),
+                    contentDescription = whatsAppLabel,
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable(interactionSource = null, indication = null) {
+                            haptics.confirm()
+                            onWhatsAppCall()
+                        },
+                )
+            }
+        }
+    }
+}
+
+/** A round action button: dark disc, green glyph. */
+@Composable
+private fun RoundAction(
+    description: String,
     onClick: () -> Unit,
     icon: @Composable () -> Unit,
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
+    Box(
+        contentAlignment = Alignment.Center,
         modifier = Modifier
-            .clip(RoundedCornerShape(16.dp))
-            .clickable(interactionSource = null, indication = null, onClick = onClick)
-            .padding(4.dp),
+            .size(48.dp)
+            .clip(CircleShape)
+            .background(CallButtonGreen.copy(alpha = 0.18f))
+            .semantics { contentDescription = description }
+            .clickable(interactionSource = null, indication = null, onClick = onClick),
     ) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier.size(56.dp).clip(CircleShape).background(container),
-        ) {
-            icon()
-        }
-        Text(
-            text = label,
-            fontSize = 12.sp,
-            color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
-            modifier = Modifier.padding(top = 6.dp),
-        )
+        icon()
     }
 }
 
 /** Counters over the whole history: four big numbers, then talk time and the
- *  latest call. Sits right under the actions, above the call list. */
+ *  latest call. Sits between the caller and the call list. */
 @Composable
 private fun StatsCard(stats: CallStats) {
     Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) {
@@ -401,8 +385,8 @@ private fun formatTalkTime(totalSeconds: Long): String {
     }
 }
 
-/** The newest few calls, then "Show more" adds ten at a time. Rows are only
- *  ever composed for what has been loaded. */
+/** One card: the newest few calls, then "Show more" adds ten at a time. Rows
+ *  are only ever composed for what has been loaded. */
 @Composable
 private fun HistorySection(uiState: CallDetailUiState, onShowMore: () -> Unit) {
     val haptics = rememberHaptics()
@@ -415,24 +399,34 @@ private fun HistorySection(uiState: CallDetailUiState, onShowMore: () -> Unit) {
             .fillMaxWidth()
             .padding(start = 28.dp, end = 28.dp, top = 14.dp, bottom = 6.dp),
     )
-    uiState.entries.forEach { entry ->
-        HistoryRow(entry, uiState.simAccounts)
-    }
-    if (uiState.hasMore) {
-        TextButton(
-            text = stringResource(
-                R.string.detail_show_more,
-                minOf(uiState.remainingCalls, PAGE_SIZE),
-            ),
-            onClick = {
-                haptics.click()
-                onShowMore()
-            },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-        )
+    Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) {
+        Column {
+            uiState.entries.forEach { entry ->
+                HistoryRow(entry, uiState.simAccounts)
+            }
+            if (uiState.hasMore) {
+                Text(
+                    text = stringResource(
+                        R.string.detail_show_more,
+                        minOf(uiState.remainingCalls, PAGE_SIZE),
+                    ),
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MiuixTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(interactionSource = null, indication = null) {
+                            haptics.click()
+                            onShowMore()
+                        }
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                )
+            }
+        }
     }
 }
 
+/** A call as HyperOS lists it: the date and time large, then what happened. */
 @Composable
 private fun HistoryRow(entry: CallLogEntry, simAccounts: List<SimAccount>) {
     val typeLabel = stringResource(callTypeLabelRes(entry.type))
@@ -440,46 +434,46 @@ private fun HistoryRow(entry: CallLogEntry, simAccounts: List<SimAccount>) {
     val time = DateUtils.formatDateTime(
         LocalContext.current,
         entry.timestampMillis,
-        DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME or DateUtils.FORMAT_SHOW_YEAR,
+        DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME or DateUtils.FORMAT_ABBREV_MONTH,
     )
+    val duration = if (entry.durationSeconds > 0) " | " + formatDuration(entry.durationSeconds) else ""
     val wifi = if (entry.wasWifiCall) " · " + stringResource(R.string.call_feature_wifi) else ""
     val ark = if (entry.viaArkCall) " · " + stringResource(R.string.call_feature_ark) else ""
     val sim = simLabelFor(entry.simAccountId, simAccounts)?.let { " · $it" }.orEmpty()
     val missed = entry.type == CallType.MISSED || entry.type == CallType.REJECTED
-    Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
-        BasicComponent(
-            startAction = {
-                Icon(
-                    imageVector = if (entry.type == CallType.BLOCKED) MiuixIcons.Blocklist else MiuixIcons.Phone,
-                    contentDescription = null,
-                    tint = when {
-                        missed -> MiuixTheme.colorScheme.error
-                        entry.type == CallType.OUTGOING -> MiuixTheme.colorScheme.primary
-                        else -> MiuixTheme.colorScheme.onSurfaceContainerVariant
-                    },
-                    modifier = Modifier.padding(end = 12.dp),
-                )
-            },
-            endActions = {
-                if (entry.durationSeconds > 0) {
-                    Text(
-                        text = formatDuration(entry.durationSeconds),
-                        style = MiuixTheme.textStyles.body2,
-                        color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
-                    )
-                }
-            },
-        ) {
-            Text(
-                text = if (whatsapp) typeLabel + " · " + stringResource(R.string.call_source_whatsapp) else typeLabel,
-                style = MiuixTheme.textStyles.body1,
-                color = if (missed) MiuixTheme.colorScheme.error else MiuixTheme.colorScheme.onSurfaceContainer,
-            )
-            Text(
-                text = time + wifi + ark + sim,
-                style = MiuixTheme.textStyles.body2,
-                color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
-            )
-        }
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+    ) {
+        Text(
+            text = time,
+            fontSize = 17.sp,
+            color = if (missed) MiuixTheme.colorScheme.error else MiuixTheme.colorScheme.onSurfaceContainer,
+        )
+        Text(
+            text = (if (whatsapp) typeLabel + " · " + stringResource(R.string.call_source_whatsapp) else typeLabel) +
+                duration + wifi + ark + sim,
+            style = MiuixTheme.textStyles.body2,
+            color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+            modifier = Modifier.padding(top = 2.dp),
+        )
+    }
+}
+
+/** The red "Block" row on its own card, as on the HyperOS call details. */
+@Composable
+private fun BlockCard(blocked: Boolean, onClick: () -> Unit) {
+    Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) {
+        Text(
+            text = stringResource(if (blocked) R.string.detail_unblock else R.string.detail_block),
+            fontSize = 17.sp,
+            fontWeight = FontWeight.Medium,
+            color = MiuixTheme.colorScheme.error,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(interactionSource = null, indication = null, onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 18.dp),
+        )
     }
 }

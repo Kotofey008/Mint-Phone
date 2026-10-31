@@ -166,11 +166,13 @@
     <string name="call_details">Puhelun tiedot</string>
     <string name="calls_search_found">Löytyi: %1$d</string>
     <string name="calls_select">Valitse</string>
+    <string name="calls_send_message">Lähetä viesti</string>
+    <string name="calls_call_with_sim">Soita: %1$s</string>
+    <string name="calls_edit_and_call">Muokkaa numeroa ja soita</string>
+    <string name="calls_copy">Kopioi</string>
     <string name="calls_selected_count">Valittu: %1$d</string>
     <string name="calls_select_all">Valitse kaikki</string>
     <string name="calls_deselect_all">Poista valinnat</string>
-    <string name="calls_copy_numbers">Kopioi numerot</string>
-    <string name="calls_numbers_copied">Numerot kopioitu</string>
     <string name="calls_delete_selected_text">Kaikki valittujen numeroiden puhelut poistetaan puhelulokista.</string>
     <string name="dialpad_long_press_plus">Kirjoita plusmerkki</string>
     <string name="incall_unknown_caller">Tuntematon numero</string>

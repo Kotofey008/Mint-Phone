@@ -18,6 +18,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.jarsi.arkphone.data.MessagesRepository
+import org.jarsi.arkphone.messaging.MessagingNavigator
 import org.jarsi.arkphone.messaging.SmsRole
 import org.jarsi.arkphone.telecom.BlockedCallNotifier
 import org.jarsi.arkphone.telecom.DefaultDialerManager
@@ -47,6 +48,8 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var blockedCallNotifier: BlockedCallNotifier
     @Inject lateinit var smsRole: SmsRole
     @Inject lateinit var messagesRepository: MessagesRepository
+
+    @Inject lateinit var messagingNavigator: MessagingNavigator
 
     private val dialRequest = mutableStateOf<String?>(null)
     private val messagesRequest = mutableStateOf(false)
@@ -104,6 +107,8 @@ class MainActivity : ComponentActivity() {
                 } else {
                     MainScreen(
                         onCall = { number -> callRouter.placeCall(number) },
+                        onCallOnSim = { number, simId -> callRouter.placeCallOnSim(number, simId) },
+                        onMessage = { number -> messagingNavigator.openConversation(this, number) },
                         onVoicemail = { callRouter.placeVoicemailCall() },
                         onRequestPermissions = { permissionLauncher.launch(defaultDialerManager.requestablePermissions()) },
                         showDefaultDialerBanner = !defaultDialer,

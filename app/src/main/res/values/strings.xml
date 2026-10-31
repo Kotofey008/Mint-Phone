@@ -167,11 +167,13 @@
     <string name="call_details">Call details</string>
     <string name="calls_search_found">Found: %1$d</string>
     <string name="calls_select">Select</string>
+    <string name="calls_send_message">Send message</string>
+    <string name="calls_call_with_sim">Call with %1$s</string>
+    <string name="calls_edit_and_call">Edit number and call</string>
+    <string name="calls_copy">Copy</string>
     <string name="calls_selected_count">Selected: %1$d</string>
     <string name="calls_select_all">Select all</string>
     <string name="calls_deselect_all">Deselect all</string>
-    <string name="calls_copy_numbers">Copy numbers</string>
-    <string name="calls_numbers_copied">Numbers copied</string>
     <string name="calls_delete_selected_text">All calls with the selected numbers will be removed from the call log.</string>
     <string name="dialpad_long_press_plus">Type plus sign</string>
     <string name="incall_unknown_caller">Unknown number</string>

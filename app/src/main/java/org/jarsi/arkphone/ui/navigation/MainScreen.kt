@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -25,6 +26,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.jarsi.arkphone.R
 import org.jarsi.arkphone.ui.calls.CallsScreen
+import org.jarsi.arkphone.ui.calls.CallsSelection
+import org.jarsi.arkphone.ui.calls.SelectAllIcon
 import org.jarsi.arkphone.ui.components.rememberHaptics
 import org.jarsi.arkphone.ui.contacts.ContactsScreen
 import org.jarsi.arkphone.ui.messages.MessagesScreen
@@ -40,7 +43,9 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Close
 import top.yukonga.miuix.kmp.icon.extended.Contacts
+import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.icon.extended.Messages
 import top.yukonga.miuix.kmp.icon.extended.Phone
 import top.yukonga.miuix.kmp.icon.extended.Settings
@@ -52,6 +57,8 @@ enum class MainTab { CALLS, MESSAGES, CONTACTS }
 @Composable
 fun MainScreen(
     onCall: (String) -> Unit,
+    onCallOnSim: (number: String, simAccountId: String) -> Unit = { _, _ -> },
+    onMessage: (String) -> Unit = {},
     onRequestPermissions: () -> Unit,
     showDefaultDialerBanner: Boolean,
     onRequestDefaultDialer: () -> Unit,
@@ -86,41 +93,89 @@ fun MainScreen(
     val scrollBehavior = MiuixScrollBehavior()
     // While the Calls search is active, the bars step aside for the results.
     var callsSearchActive by rememberSaveable { mutableStateOf(false) }
-    // The same while several calls are being picked.
-    var callsSelectionActive by rememberSaveable { mutableStateOf(false) }
-    val callsFullScreen = callsSearchActive || callsSelectionActive
+    // Picking calls: the title shows the count, the bottom bar offers delete.
+    val selection = remember { CallsSelection() }
     LaunchedEffect(selectedTab) {
         if (selectedTab != MainTab.CALLS) {
             callsSearchActive = false
-            callsSelectionActive = false
+            selection.cancel()
         }
     }
     Scaffold(
         topBar = {
-            if (selectedTab == MainTab.CALLS && !callsFullScreen) {
-                TopAppBar(
-                    title = stringResource(R.string.tab_calls),
-                    scrollBehavior = scrollBehavior,
-                    actions = {
-                        IconButton(
-                            onClick = {
-                                haptics.click()
-                                context.startActivity(SettingsActivity.intent(context))
-                            },
-                        ) {
-                            Icon(
-                                MiuixIcons.Settings,
-                                contentDescription = stringResource(R.string.settings_title),
-                                tint = MiuixTheme.colorScheme.onBackground,
-                            )
-                        }
-                    },
-                )
+            if (selectedTab == MainTab.CALLS && !callsSearchActive) {
+                if (selection.active) {
+                    TopAppBar(
+                        title = stringResource(R.string.calls_selected_count, selection.count),
+                        scrollBehavior = scrollBehavior,
+                        navigationIcon = {
+                            IconButton(
+                                onClick = {
+                                    haptics.click()
+                                    selection.cancel()
+                                },
+                            ) {
+                                Icon(
+                                    MiuixIcons.Close,
+                                    contentDescription = stringResource(R.string.common_cancel),
+                                    tint = MiuixTheme.colorScheme.onBackground,
+                                )
+                            }
+                        },
+                        actions = {
+                            IconButton(
+                                onClick = {
+                                    haptics.click()
+                                    selection.toggleAll()
+                                },
+                            ) {
+                                Icon(
+                                    SelectAllIcon,
+                                    contentDescription = stringResource(
+                                        if (selection.allSelected) R.string.calls_deselect_all else R.string.calls_select_all,
+                                    ),
+                                    tint = MiuixTheme.colorScheme.onBackground,
+                                )
+                            }
+                        },
+                    )
+                } else {
+                    TopAppBar(
+                        title = stringResource(R.string.tab_calls),
+                        scrollBehavior = scrollBehavior,
+                        actions = {
+                            IconButton(
+                                onClick = {
+                                    haptics.click()
+                                    context.startActivity(SettingsActivity.intent(context))
+                                },
+                            ) {
+                                Icon(
+                                    MiuixIcons.Settings,
+                                    contentDescription = stringResource(R.string.settings_title),
+                                    tint = MiuixTheme.colorScheme.onBackground,
+                                )
+                            }
+                        },
+                    )
+                }
             }
         },
         bottomBar = {
-            if (!callsFullScreen) {
-                ArkBottomBar(
+            when {
+                callsSearchActive -> Unit
+                selection.active -> NavigationBar {
+                    NavigationBarItem(
+                        selected = false,
+                        onClick = {
+                            haptics.confirm()
+                            selection.deleteRequested = true
+                        },
+                        icon = MiuixIcons.Delete,
+                        label = stringResource(R.string.common_delete),
+                    )
+                }
+                else -> ArkBottomBar(
                     selected = selectedTab,
                     onSelect = { selectedTab = it },
                     unreadMessages = unreadMessages,
@@ -139,8 +194,9 @@ fun MainScreen(
                 scrollConnection = scrollBehavior.nestedScrollConnection,
                 searchActive = callsSearchActive,
                 onSearchActiveChange = { callsSearchActive = it },
-                selectionActive = callsSelectionActive,
-                onSelectionActiveChange = { callsSelectionActive = it },
+                selection = selection,
+                onMessage = onMessage,
+                onCallOnSim = onCallOnSim,
                 banner = if (showDefaultDialerBanner) {
                     { DefaultDialerBanner(onRequestDefaultDialer) }
                 } else {

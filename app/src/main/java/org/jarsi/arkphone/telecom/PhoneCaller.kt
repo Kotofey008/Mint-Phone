@@ -43,6 +43,18 @@ class PhoneCaller @Inject constructor(
         return place(Uri.fromParts("tel", number, null))
     }
 
+    /** Calls [number] on one specific SIM instead of the user's usual choice
+     *  (the "Call with SIM 2" menu entry). False when CALL_PHONE is missing. */
+    fun placeCall(number: String, simAccountId: String): Boolean {
+        if (number.isBlank()) return false
+        if (!permissionChecker.has(Manifest.permission.CALL_PHONE)) return false
+        callPlacer.place(
+            Uri.fromParts("tel", number, null),
+            simAccountRepository.handleFor(simAccountId),
+        )
+        return true
+    }
+
     /** Calls the operator voicemail; false when CALL_PHONE is missing. */
     fun placeVoicemailCall(): Boolean = place(Uri.fromParts("voicemail", "", null))
 
