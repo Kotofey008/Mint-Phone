@@ -13,3 +13,14 @@ internal fun simLabelFor(accountId: String?, available: List<SimAccount>): Strin
     if (available.size < 2) return null
     return available.firstOrNull { it.id == accountId }?.label
 }
+
+/**
+ * 1-based slot index of [accountId] among [available], for the HyperOS-style
+ * SIM chip on call rows. Null when there is only one SIM or the account is unknown.
+ */
+internal fun simIndexFor(accountId: String?, available: List<SimAccount>): Int? {
+    if (available.size < 2 || accountId.isNullOrBlank()) return null
+    val index = available.indexOfFirst { it.id == accountId }
+    return if (index >= 0) index + 1 else null
+}
+

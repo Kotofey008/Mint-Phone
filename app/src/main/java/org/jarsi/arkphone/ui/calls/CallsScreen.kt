@@ -382,6 +382,11 @@ fun CallsContent(
                     onDial = onDial,
                     onVoicemail = onVoicemail,
                     onSpeedDial = onSpeedDial,
+                    simAccounts = recentsUiState.simAccounts,
+                    onCallOnSim = { simId ->
+                        val number = dialpadUiState.number
+                        if (number.isNotBlank()) onCallOnSim(number, simId)
+                    },
                     modifier = Modifier.heightIn(max = panelMaxHeight),
                 )
             }

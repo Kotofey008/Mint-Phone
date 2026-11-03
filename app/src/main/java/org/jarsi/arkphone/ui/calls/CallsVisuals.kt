@@ -6,8 +6,10 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -27,6 +29,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** The green of the call buttons, as in the HyperOS dialer. */
@@ -141,3 +145,18 @@ internal fun PersonTile(size: Dp, modifier: Modifier = Modifier) {
         }
     }
 }
+
+/** HyperOS-style SIM slot chip shown on call rows when dual-SIM is active. */
+@Composable
+internal fun SimChip(index: Int, modifier: Modifier = Modifier) {
+    Text(
+        text = index.toString(),
+        fontSize = 10.sp,
+        color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+        modifier = modifier
+            .clip(RoundedCornerShape(4.dp))
+            .background(MiuixTheme.colorScheme.secondaryContainer)
+            .padding(horizontal = 4.dp, vertical = 1.dp),
+    )
+}
+

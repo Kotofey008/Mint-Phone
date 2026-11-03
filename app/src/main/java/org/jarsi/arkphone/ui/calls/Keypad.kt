@@ -9,16 +9,19 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -33,10 +36,13 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.jarsi.arkphone.R
+import org.jarsi.arkphone.data.model.SimAccount
 import org.jarsi.arkphone.ui.components.rememberHaptics
 import org.jarsi.arkphone.ui.dialpad.DialpadUiState
 import top.yukonga.miuix.kmp.basic.FloatingActionButton
@@ -87,8 +93,11 @@ internal fun FoldedCallButton(onClick: () -> Unit, modifier: Modifier = Modifier
 }
 
 /**
- * The unfolded keypad: typed number, 12 keys, and a bottom row with the round
- * call button in the middle and the round hide button under the right-hand key.
+ * The unfolded keypad: typed number, 12 keys, and a HyperOS-style call bar.
+ *
+ * Single SIM (or unknown): one green round call button, fold control on the right.
+ * Dual+ SIM: split green pill with per-SIM labels (as in HyperOS 2 dialer),
+ * menu affordance on the left and fold (grid) on the right.
  */
 @Composable
 internal fun KeypadPanel(
@@ -101,6 +110,8 @@ internal fun KeypadPanel(
     onDial: () -> Unit,
     onVoicemail: () -> Unit,
     onSpeedDial: (Int) -> Unit,
+    simAccounts: List<SimAccount> = emptyList(),
+    onCallOnSim: (simAccountId: String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val haptics = rememberHaptics()
@@ -135,17 +146,87 @@ internal fun KeypadPanel(
             onPasteClipboard = { clipboard.getText()?.text?.let(onPaste) },
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
         )
-        Box(
-            Modifier
+        HyperOsCallBar(
+            simAccounts = simAccounts,
+            onDial = onDial,
+            onCallOnSim = onCallOnSim,
+            onFold = onFold,
+            modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 2.dp, bottom = KeypadEdgePadding),
-        ) {
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .padding(bottom = 4.dp),
+        )
+    }
+}
+
+/** Height of the green call control(s), matching HyperOS dialer proportions. */
+private val HyperOsCallBarHeight = 52.dp
+
+/**
+ * HyperOS-style bottom call control for the expanded keypad.
+ * - 0–1 SIMs: centered green circle with phone icon + fold on the right.
+ * - 2+ SIMs: full-width green split pill, one segment per SIM (first two),
+ *   with SIM index badge and carrier label; fold control on the right.
+ */
+@Composable
+private fun HyperOsCallBar(
+    simAccounts: List<SimAccount>,
+    onDial: () -> Unit,
+    onCallOnSim: (simAccountId: String) -> Unit,
+    onFold: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val haptics = rememberHaptics()
+    val dual = simAccounts.size >= 2
+    Row(
+        modifier = modifier.height(HyperOsCallBarHeight),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (dual) {
+            // Split green pill — first two SIMs, as in stock HyperOS.
+            val left = simAccounts[0]
+            val right = simAccounts[1]
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(percent = 50))
+                    .background(CallButtonGreen),
+            ) {
+                SimCallSegment(
+                    index = 1,
+                    label = left.label,
+                    onClick = {
+                        haptics.confirm()
+                        onCallOnSim(left.id)
+                    },
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                )
+                Box(
+                    Modifier
+                        .width(1.dp)
+                        .fillMaxHeight()
+                        .padding(vertical = 12.dp)
+                        .background(Color.White.copy(alpha = 0.35f)),
+                )
+                SimCallSegment(
+                    index = 2,
+                    label = right.label,
+                    onClick = {
+                        haptics.confirm()
+                        onCallOnSim(right.id)
+                    },
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                )
+            }
+        } else {
+            Spacer(Modifier.weight(1f))
             FloatingActionButton(
                 onClick = {
                     haptics.confirm()
                     onDial()
                 },
-                modifier = Modifier.align(Alignment.BottomCenter).size(KeypadCallButton),
+                modifier = Modifier.size(KeypadCallButton),
                 shape = CircleShape,
                 containerColor = CallButtonGreen,
             ) {
@@ -155,25 +236,68 @@ internal fun KeypadPanel(
                     tint = Color.White,
                 )
             }
-            FloatingActionButton(
-                onClick = {
-                    haptics.click()
-                    onFold()
-                },
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = KeypadEdgePadding)
-                    .size(KeypadSmallButton),
-                shape = CircleShape,
-                containerColor = MiuixTheme.colorScheme.secondaryContainer,
-            ) {
-                Icon(
-                    MiuixIcons.ExpandMore,
-                    contentDescription = stringResource(R.string.dialpad_hide),
-                    tint = MiuixTheme.colorScheme.onSecondaryContainer,
-                )
-            }
+            Spacer(Modifier.weight(1f))
         }
+        Spacer(Modifier.width(10.dp))
+        // Fold control — same position as the folded FAB so the motion is stable.
+        FloatingActionButton(
+            onClick = {
+                haptics.click()
+                onFold()
+            },
+            modifier = Modifier.size(KeypadSmallButton),
+            shape = CircleShape,
+            containerColor = MiuixTheme.colorScheme.secondaryContainer,
+        ) {
+            Icon(
+                MiuixIcons.ExpandMore,
+                contentDescription = stringResource(R.string.dialpad_hide),
+                tint = MiuixTheme.colorScheme.onSecondaryContainer,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SimCallSegment(
+    index: Int,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Icon(
+            MiuixIcons.Phone,
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.size(20.dp),
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = index.toString(),
+            color = Color.White,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.25f))
+                .padding(horizontal = 5.dp, vertical = 1.dp),
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = label,
+            color = Color.White,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

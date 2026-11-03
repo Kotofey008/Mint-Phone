@@ -57,9 +57,11 @@ import org.jarsi.arkphone.data.model.CallSource
 import org.jarsi.arkphone.data.model.CallType
 import org.jarsi.arkphone.data.model.Contact
 import org.jarsi.arkphone.data.model.SimAccount
+import org.jarsi.arkphone.data.simIndexFor
 import org.jarsi.arkphone.data.simLabelFor
 import org.jarsi.arkphone.ui.calls.ChevronRightIcon
 import org.jarsi.arkphone.ui.calls.PersonTile
+import org.jarsi.arkphone.ui.calls.SimChip
 import org.jarsi.arkphone.ui.calls.pressHighlight
 import org.jarsi.arkphone.ui.components.MenuEntry
 import org.jarsi.arkphone.ui.components.MiuixPopupMenu
@@ -401,7 +403,13 @@ private fun RecentsRow(
     }
     val wifiSuffix = if (entry.wasWifiCall) " · " + stringResource(R.string.call_feature_wifi) else ""
     val arkSuffix = if (entry.viaArkCall) " · " + stringResource(R.string.call_feature_ark) else ""
-    val simSuffix = simLabelFor(entry.simAccountId, simAccounts)?.let { " · $it" }.orEmpty()
+    val simIndex = simIndexFor(entry.simAccountId, simAccounts)
+    // Keep carrier label only when we cannot show a slot chip (unknown account).
+    val simSuffix = if (simIndex == null) {
+        simLabelFor(entry.simAccountId, simAccounts)?.let { " · $it" }.orEmpty()
+    } else {
+        ""
+    }
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
     val copiedText = stringResource(R.string.number_copied)
@@ -498,15 +506,23 @@ private fun RecentsRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(
-                text = DateUtils.getRelativeTimeSpanString(entry.timestampMillis).toString() +
-                    " · " + typeLabel + sourceSuffix + wifiSuffix + arkSuffix + simSuffix,
-                fontSize = 13.sp,
-                color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(top = 2.dp),
-            )
+            ) {
+                if (simIndex != null) {
+                    SimChip(index = simIndex)
+                    Spacer(Modifier.width(6.dp))
+                }
+                Text(
+                    text = DateUtils.getRelativeTimeSpanString(entry.timestampMillis).toString() +
+                        " · " + typeLabel + sourceSuffix + wifiSuffix + arkSuffix + simSuffix,
+                    fontSize = 13.sp,
+                    color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
         Spacer(Modifier.width(12.dp))
         if (selectionMode) {
